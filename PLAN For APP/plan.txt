@@ -1,0 +1,61 @@
+1. The Entryway (Login & Onboarding)
+
+Inspired by the first image (the "Notely" splash screen).
+
+    The UI: A clean, welcoming screen with a nice illustration, your app's title, and a short description ("Share your thoughts with the world").
+
+    The Action: Instead of a complex email/password flow, there’s just a single <TextInput> for a "Username" and a "Let's Start" button.
+
+    Under the Hood: When they click start, we save that username to AsyncStorage so they stay logged in, and anonymously authenticate them with Firebase.
+
+2. The Main Hub (Home Feed)
+
+Inspired by the third image (the social feed) and the second image (date sorting).
+
+    The Header: A friendly greeting at the top: "Good evening, @[username]".
+
+    The Date Sorter (Crucial Feature): Right below the header, a horizontal scrollable row of dates (like the "Tue 23 Apr" bubbles in your second image). Tapping a date filters the global feed to only show notes posted on that specific day.
+
+    Category Filters: A row of small pill-shaped buttons (like in the first image) to filter by type: All Notes | Text | Images | Audio.
+
+    The Feed (FlatList): A scrollable list of note cards. Each card displays:
+
+        The author's @username and a timestamp (e.g., "15m ago").
+
+        The content (text preview, a thumbnail if it's an image, or a mini waveform/play button if it's audio).
+
+        A comment icon with the total number of comments.
+
+    The "Add" Button: A Floating Action Button (FAB) anchored to the bottom right (like the + Create or pencil icon in your images) that opens the creation screen.
+
+3. The Creation Engine ("Add Stuff" Page)
+
+    The UI: A clean, distraction-free modal that slides up.
+
+    The Inputs:
+
+        A large text area to type their thoughts.
+
+        An Image Button (opens their phone's camera roll).
+
+        An Audio Button (opens a simple microphone interface to record a quick voice memo).
+
+    Under the Hood (Important Tech Note): Because you want images and audio, Firebase Firestore (the database) isn't enough on its own. We will also need to enable Firebase Storage.
+
+        When a user adds a photo/audio, we upload the file to Firebase Storage first.
+
+        Storage gives us back a URL (a web link) to that file.
+
+        We save that URL inside the Firestore database note document alongside the text and username.
+
+4. The Conversation Room (Detail & Comment View)
+
+    The UI: When a user taps any note on the Home feed, it navigates them to a dedicated screen for that specific note.
+
+    The Layout: * Top: The full, expanded note (full-size image, playable audio, complete text).
+
+        Middle: A scrollable list of comments left by other users, showing their @usernames and timestamps.
+
+        Bottom: A sticky input field that stays above the keyboard: "Type a comment..." and a send button.
+
+    Under the Hood: We will create a comments sub-collection in Firebase linked to the specific note's ID so everything stays organized.

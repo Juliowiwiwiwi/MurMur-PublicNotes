@@ -1,24 +1,29 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { Stack } from "expo-router";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
+const getGreeting =() =>{
+  const hr = new Date().getHours();
+  if(hr<12) return "Good Morning";
+  if(hr<18) return "Good Afternoon";
+  return "Good Evening";
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
 
+  const greeting = getGreeting();
+  const username="Devanarayan C S";//pull from state after implementing fr now js testeing
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack>
+      <Stack.Screen name="index" options={{headerTitle:"Login", headerShown:false}}/>
+      <Stack.Screen 
+        name="feed" 
+        options={{
+          headerTitle:`${greeting}, ${username}`,
+          headerStyle:{backgroundColor:'#000'},
+          headerTintColor:'#fff',
+          headerLeft:() => null,
+        }}
+      />
+      <Stack.Screen name="[id]" options={{headerTitle:"MurMur"}}/>
+    </Stack>
   );
 }
