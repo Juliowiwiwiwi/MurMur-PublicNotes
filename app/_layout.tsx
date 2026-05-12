@@ -21,6 +21,8 @@ export default function RootLayout() {
           headerStyle:{backgroundColor:'#000'},
           headerTintColor:'#fff',
           headerLeft:() => null,
+          headerBackVisible: false,
+          headerTitleAlign:'center',
         }}
       />
       <Stack.Screen name="[id]" options={{headerTitle:"MurMur"}}/>
