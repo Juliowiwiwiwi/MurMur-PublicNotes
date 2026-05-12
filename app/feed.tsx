@@ -1,12 +1,23 @@
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import { LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+//greeting for header
+const getGreeting = () => {
+  const hr = new Date().getHours();
+  if(hr < 12) return "Good Morning";
+  if(hr < 18) return "Good Afternoon";
+  return "Good Evening";
+};
 
 if(Platform.OS==="android" &&UIManager.setLayoutAnimationEnabledExperimental){
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export default function Feed() {
+  const {user}=useLocalSearchParams();
+  const greeting = getGreeting();
   
   const [isExpanded, setExpanded]=useState(false);
 
@@ -37,47 +48,82 @@ export default function Feed() {
     setExpanded(!isExpanded);
   };
 
+  const [activeCategory, setActiveCategory]=useState("All");
+  const categories = ["All","Text","Image","Audio"];
+
+
 
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{headerTitle:`${greeting}, ${user}`}} />
+      {/*This will be the permanent Header. Trigger and the calendar will be wrapped in modal */}
       <View style={styles.headerWrapper}>
-        {!isExpanded ? (
-          <TouchableOpacity onPress={toggleHeader} style={styles.closedContainer}>
-            <Text style={styles.todayText}>
-              {currentSelected!.day},{currentSelected!.month},{currentSelected!.date}
-              {/* //basically im using ! to say "trust me bro it exist" cuz sometimes it can fail like when currentselected is random and .find() doesnt find naythin*/}
-            </Text>
-            <Text style={styles.tapHint}>Tap to view history</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.openContainer}>
-            <TouchableOpacity onPress={toggleHeader} style={styles.doneButton}>
-              <Text style={styles.doneText}>Done</Text>
-            </TouchableOpacity> 
+        <TouchableOpacity onPress={toggleHeader} style={styles.closedContainer}>
+          <Text style={styles.todayText}>
+            {currentSelected!.day},{currentSelected!.month},{currentSelected!.date}
+            {/* //basically im using ! to say "trust me bro it exist" cuz sometimes it can fail like when currentselected is random and .find() doesnt find naythin*/}
+          </Text>
+          <Text style={styles.tapHint}>Tap to view history</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={isExpanded}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={toggleHeader}
+    >
+        <TouchableOpacity onPress={toggleHeader} style={styles.modalOverlay} activeOpacity={1}>
+          {/* THE MAIN FLOATING CARD */}
+          <View style={styles.calendarPopout} onStartShouldSetResponder={()=>true}>
+            <View style={styles.popoutHeader}>
+              <Text style={styles.popoutTitle}>History</Text>
+              <TouchableOpacity onPress={toggleHeader} style={styles.doneButton}>
+                <Text style={styles.doneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {dates.map((item) =>{
                 const isSelected = selectedDate===item.full
                 return(
-                
-                <TouchableOpacity
-                  key={item.full}
-                  onPress={()=>setSelectedDate(item.full)}
-                  style={[styles.dateCard, isSelected && styles.activeCard]}
-                >
-                  <Text style={[styles.dayText, isSelected && styles.activeText]}>{item.day}</Text>
-                  <Text style={[styles.dateNumber, isSelected && styles.activeText]}>{item.date}</Text>
-                </TouchableOpacity>
-                )
-              })
-              
-              }
+                  <TouchableOpacity
+                    key={item.full}
+                    onPress={()=>setSelectedDate(item.full)}
+                    style={[styles.dateCard, isSelected && styles.activeCard]}
+                  >
+                    <Text style={[styles.dayText, isSelected && styles.activeText]}>{item.day}</Text>
+                    <Text style={[styles.dateNumber, isSelected && styles.activeText]}>{item.date}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
-        )
-        }
+        </TouchableOpacity>
+      </Modal>
+        
+
+
+
+
+      {/* The category thing scroller for all image text audio */}
+      <View style={styles.filterSection}>
+        <ScrollView style ={styles.filterScroll}  horizontal showsHorizontalScrollIndicator={false} >
+          {categories.map((cat) =>{
+            const isSelectedCat= activeCategory=== cat;
+            return (
+              <TouchableOpacity key ={cat} onPress={()=>setActiveCategory(cat)} 
+              style={[styles.pill,isSelectedCat&&styles.activePill]}>
+                <Text style={[styles.pillText,isSelectedCat&&styles.activePillText]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            )})}
+        </ScrollView>
       </View>
 
+      
       <View>
         {/* the notes part to build later */}
         <Text style={styles.TemporaryNotessection}>No Whispers For {currentSelected?.day}</Text>
@@ -117,12 +163,43 @@ const styles = StyleSheet.create({
   openContainer: {
     paddingBottom: 10,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dims the rest of the screen
+    justifyContent: 'flex-start',
+    marginVertical:150, // Centers the card vertically
+    alignItems: 'center',
+  },
+  calendarPopout: {
+    width: '90%',
+    backgroundColor: '#1a1a1a', // Same dark gray as your inputs
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+    // Elevation for Android / Shadow for iOS
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  popoutHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  popoutTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   doneButton: {
-    alignSelf: 'flex-end',
-    padding: 8,
-    backgroundColor: '#131441', // Your Indigo button color
-    borderRadius: 12,
-    marginBottom: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    backgroundColor: '#131441',
+    borderRadius: 10,
   },
   doneText: {
     color: '#fff',
@@ -160,5 +237,32 @@ const styles = StyleSheet.create({
     textAlign:'center',
     padding:30,
     margin:15,
+  },
+  filterSection: {
+    marginTop: 10,
+  },
+  filterScroll: {
+    paddingHorizontal: 25,
+  },
+  pill: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    backgroundColor: '#1a1a1a',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  activePill: {
+    backgroundColor: '#fff', // White pill when selected
+    borderColor: '#fff',
+  },
+  pillText: {
+    color: '#a1a1a1',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  activePillText: {
+    color: '#000', // Black text on white pill
   },
 });

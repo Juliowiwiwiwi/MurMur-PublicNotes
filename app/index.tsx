@@ -9,7 +9,10 @@ export default function Index() {
 
   const handleLogin = () => {
     if (username.trim().length >2){
-      router.push("/feed");
+      router.replace({
+        pathname: "/feed",
+        params:{user:username}
+      });
     } else{
       alert("Enter a username (at least 3 characters)")
     }
