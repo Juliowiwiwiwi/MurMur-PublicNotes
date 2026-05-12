@@ -1,50 +1,78 @@
-# Welcome to your Expo app 👋
+# MurMur
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A modern social notes app where people can share random thoughts, stories, images, voice notes, and conversations in one endless public feed.
 
-## Get started
+MurMur is inspired by the idea of a fridge covered in sticky notes — random thoughts, funny moments, opinions, jokes, memories, and late-night ideas all shared in one place.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## ✨ Features
 
-2. Start the app
+- Public social notes feed
+- Username-based quick login
+- Text, image, and audio posts
+- Real-time comments and conversations
+- Date-based feed filtering
+- Minimal dark-mode UI
+- Smooth mobile-first experience
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🛠️ Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- React Native
+- Expo
+- TypeScript
+- Firebase Authentication
+- Firestore Database
+- Firebase Storage
+- AsyncStorage
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 📱 Screens
 
-When you're ready, run:
+- Login / Onboarding
+- Global Feed
+- Create Post
+- Comments & Conversations
+- Media Upload Support
+
+---
+
+## 🚧 Status
+
+MurMur is currently **under active development**.  
+New features, UI improvements, animations, and backend functionality are still being added.
+
+The project is not production-ready yet and exists as an experimental social app concept.
+
+---
+
+## 🎨 Design Direction
+
+MurMur focuses on:
+- Minimal dark aesthetics
+- Smooth modern UI
+- Glassmorphism-inspired components
+- Social feed interactions
+- Casual internet culture vibes
+
+---
+
+## 📌 Vision
+
+MurMur is designed to feel like a public wall of sticky notes on the internet — a place where people casually leave thoughts behind and discover what others are thinking too.
+
+---
+
+## ⚡ Getting Started
 
 ```bash
-npm run reset-project
-```
+git clone https://github.com/yourusername/murmur.git
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+cd murmur
 
-## Learn more
+npm install
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+npx expo start
