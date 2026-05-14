@@ -162,7 +162,7 @@ export default function Feed() {
       
       
       
-      {/* THE NOTES PART */}
+      {/* The main notes part */}
       <FlatList data={getFilteredNotes()}
       keyExtractor={(item=>item.id)}
       contentContainerStyle={{paddingBottom:100,paddingTop:10,}}
@@ -170,7 +170,7 @@ export default function Feed() {
         <Text style={styles.TemporaryNotessection}>No whispers found.</Text>
       }
       renderItem={({item})=>(
-        <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>{/* Setup Later for on Press */}}>
+        <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>{/* will do it later */}}>
           <View style={styles.cardHeader}>
             <Text style={styles.authorText}>@{item.author}</Text>
             <Text style={styles.timeText}>{item.time}</Text>
@@ -185,8 +185,35 @@ export default function Feed() {
               resizeMode="cover"/>
             </View>
           )}
+          {item.type==="Audio" && (
+            <View style={styles.audioPlayer}>
+              <View style={styles.playButton}>
+                <Text style={styles.playIcon}>▶</Text>
+              </View>
+              <View style={styles.waveFormPlaceholder}>
+                <View style={[styles.waveBar, {height: 10}]} />
+                <View style={[styles.waveBar, {height: 20}]} />
+                <View style={[styles.waveBar, {height: 15}]} />
+                <View style={[styles.waveBar, {height: 25}]} />
+              </View>
+            </View>
+          )}
         </TouchableOpacity>
       )}/>
+    
+
+
+      <TouchableOpacity 
+       style={styles.add}
+       activeOpacity={0.8}
+       onPress={()=>{
+        //will do later
+        console.log("Add button pressed to creat new note")
+       }} >
+        <Text style={styles.addIcon}>+</Text>
+      </TouchableOpacity>
+
+
 
     </SafeAreaView>
   );
@@ -203,7 +230,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     backgroundColor: '#000',
     borderBottomWidth: 1,
-    borderColor: '#1a1a1a', // Subtle divider
+    borderColor: '#1a1a1a', 
   },
   // CLOSED STATE
   closedContainer: {
@@ -212,7 +239,7 @@ const styles = StyleSheet.create({
   todayText: {
     color: '#fff',
     fontSize: 28,
-    fontWeight: '900', // Bold logo-style weight
+    fontWeight: '900', 
   },
   tapHint: {
     color: '#a1a1a1',
@@ -225,19 +252,18 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dims the rest of the screen
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
     justifyContent: 'flex-start',
-    marginVertical:150, // Centers the card vertically
+    marginVertical:150,
     alignItems: 'center',
   },
   calendarPopout: {
     width: '90%',
-    backgroundColor: '#1a1a1a', // Same dark gray as your inputs
+    backgroundColor: '#1a1a1a',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
     borderColor: '#333',
-    // Elevation for Android / Shadow for iOS
     elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -275,7 +301,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   activeCard: {
-    backgroundColor: '#6366f1', // when date is chosen
+    backgroundColor: '#6366f1', 
   },
   dayText: {
     color: '#a1a1a1',
@@ -331,7 +357,7 @@ const styles = StyleSheet.create({
     borderColor: '#333',
   },
   activePill: {
-    backgroundColor: '#fff', // White pill when selected
+    backgroundColor: '#fff',
     borderColor: '#fff',
   },
   pillText: {
@@ -340,12 +366,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   activePillText: {
-    color: '#000', // Black text on white pill
+    color: '#000', 
   },
   noteCard: {
     backgroundColor: '#111',
     marginHorizontal: 20,
-    marginBottom: 15, // Changed from marginTop to marginBottom for better list spacing
+    marginBottom: 15, 
     padding: 20,
     borderRadius: 25,
     borderWidth: 1,
@@ -357,7 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   authorText: {
-    color: '#6366f1', // Using your indigo for branding
+    color: '#ffffff', 
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -385,13 +411,12 @@ const styles = StyleSheet.create({
     width:'100%',
     height:'100%',
     borderRadius:15,
-    margin:10,
 
   },
   audioPlayer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131441', // Your theme's Indigo
+    backgroundColor: '#131441', 
     padding: 12,
     borderRadius: 15,
     marginBottom: 12,
@@ -424,4 +449,27 @@ const styles = StyleSheet.create({
     borderTopColor: '#222',
   },
   footerText: { color: '#666', fontSize: 12 },
+  add: {
+    position: 'absolute',
+    bottom: 30, // 
+    right: 30,  
+    width: 60,
+    height: 60,
+    borderRadius: 30, 
+    backgroundColor: '#ffffff', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Shadow for depth
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  addIcon: {
+    color: '#000000',
+    fontSize: 32,
+    fontWeight: '300', 
+    marginTop: -2, 
+  },
 });
