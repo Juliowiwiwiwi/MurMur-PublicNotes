@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import { FlatList, Image, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 //greeting for header
@@ -51,6 +51,40 @@ export default function Feed() {
   const [activeCategory, setActiveCategory]=useState("All");
   const categories = ["All","Text","Image","Audio"];
 
+  const getFilteredNotes= () => {
+    if(activeCategory==="All") return MOCK_NOTES;
+    return MOCK_NOTES.filter(note => note.type === activeCategory)
+  }
+
+
+
+  const MOCK_NOTES = [
+  { 
+    id: '1', 
+    author: 'devanarayan', 
+    type: 'Text', 
+    content: 'The layout animation for the history toggle is finally working smoothly!', 
+    time: '2m ago', 
+    comments: 3 
+  },
+  { 
+    id: '2', 
+    author: 'lyra_notes', 
+    type: 'Image', 
+    content: 'Caught this view while thinking about the new app design.', 
+    imageUrl: 'https://images3.memedroid.com/images/UPLOADED274/58ccc9a89e2ca.jpeg', 
+    time: '45m ago', 
+    comments: 8 
+  },
+  { 
+    id: '3', 
+    author: 'pixel_poet', 
+    type: 'Audio', 
+    content: 'A quick voice memo about the project roadmap.', 
+    time: '2h ago', 
+    comments: 1 
+  },
+];
 
 
 
@@ -124,10 +158,36 @@ export default function Feed() {
       </View>
 
       
-      <View>
-        {/* the notes part to build later */}
-        <Text style={styles.TemporaryNotessection}>No Whispers For {currentSelected?.day}</Text>
-      </View>
+      
+      
+      
+      
+      {/* THE NOTES PART */}
+      <FlatList data={getFilteredNotes()}
+      keyExtractor={(item=>item.id)}
+      contentContainerStyle={{paddingBottom:100,paddingTop:10,}}
+      ListEmptyComponent={
+        <Text style={styles.TemporaryNotessection}>No whispers found.</Text>
+      }
+      renderItem={({item})=>(
+        <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>{/* Setup Later for on Press */}}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.authorText}>@{item.author}</Text>
+            <Text style={styles.timeText}>{item.time}</Text>
+          </View>
+          <Text style={styles.cardContent}>{item.content}</Text>
+
+          {item.type==="Image" && (
+            <View style={styles.noteImageContainer}>
+              <Image
+              source={{uri:item.imageUrl}}
+              style={styles.noteImage}
+              resizeMode="cover"/>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}/>
+
     </SafeAreaView>
   );
 }
@@ -136,7 +196,7 @@ export default function Feed() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000', // Keeps the black theme
+    backgroundColor: '#000', 
   },
   headerWrapper: {
     paddingHorizontal: 25,
@@ -238,6 +298,23 @@ const styles = StyleSheet.create({
     padding:30,
     margin:15,
   },
+  emptyBox:{
+    textAlign:'center',
+    backgroundColor:'#08ded6',
+    padding:20,
+    margin:20,
+    borderRadius:25,
+    borderWidth:2,
+    borderColor:'#fff',
+  },
+  boxText:{
+  color:'#000000',
+    fontSize:18,
+    textAlign:'center',
+    padding:30,
+    margin:15,
+    fontWeight:'bold',
+  },
   filterSection: {
     marginTop: 10,
   },
@@ -265,4 +342,86 @@ const styles = StyleSheet.create({
   activePillText: {
     color: '#000', // Black text on white pill
   },
+  noteCard: {
+    backgroundColor: '#111',
+    marginHorizontal: 20,
+    marginBottom: 15, // Changed from marginTop to marginBottom for better list spacing
+    padding: 20,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  authorText: {
+    color: '#6366f1', // Using your indigo for branding
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  timeText: {
+    color: '#666',
+    fontSize: 12,
+  },
+  cardContent: {
+    color: '#efefef',
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  noteImageContainer: {
+    height: 180,
+    width:'100%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  noteImage:{
+    width:'100%',
+    height:'100%',
+    borderRadius:15,
+    margin:10,
+
+  },
+  audioPlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131441', // Your theme's Indigo
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 12,
+  },
+  playButton: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  playIcon: { color: '#000', fontSize: 14, marginLeft: 2 },
+  waveFormPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  waveBar: {
+    width: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 2,
+    borderRadius: 2,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#222',
+  },
+  footerText: { color: '#666', fontSize: 12 },
 });
