@@ -22,10 +22,12 @@ export default function Index() {
       <KeyboardAvoidingView behavior={Platform.OS ==="ios" ? "padding" : "height"} style={styles.container}
       >
         <View style={styles.inner}>
-          <Text style={styles.logo}>
-            MurMur
-          </Text>
-          <Text style={styles.subtitle}>Thoughts that linger.{"\n"}Notes that stay.{"\n"}Something new with every swipe away. </Text>
+          <View>
+            <Text style={styles.logo}>
+              MurMur
+            </Text>
+            <Text style={styles.subtitle}>Thoughts that linger.{"\n"}Notes that stay.{"\n"}Something new with every swipe away. </Text>
+          </View>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -34,7 +36,11 @@ export default function Index() {
               value={username}
               onChangeText={setUsername}
             />
-            <TouchableOpacity style={styles.button} onPress={handleLogin} activeOpacity={0.5}>
+            <TouchableOpacity style={styles.button} onPress={()=>{
+              handleLogin();
+              console.log("Login Pressed");
+            }}
+            activeOpacity={0.5}>
               <Text style={styles.buttonText}>Let's get started! →</Text>
             </TouchableOpacity>
           </View>
@@ -53,23 +59,20 @@ const styles=StyleSheet.create({
     flex:1,
     backgroundColor:"#000000",
     paddingHorizontal: 30,
-    paddingVertical:15,
+    paddingVertical:40,
+    justifyContent: 'space-between',
   },
   logo:{
-    verticalAlign:'top',
-    alignSelf:'flex-start',
     fontSize:48,
     fontWeight:900,
     paddingVertical:15,
     marginBottom:12,
     color:"white",
-    textAlign:'left',
   },
   subtitle:{
     fontSize:18,
     color:"#a1a1a1",
     lineHeight:24,
-    marginBottom:400,
     textAlign:'left',
   },
     inputContainer:{

@@ -15,6 +15,7 @@ export default function RootLayout() {
           headerTitleAlign:'center',
         }}
       />
+      <Stack.Screen name="create" options={{headerTitle:"Add Whisper"}}/>
       <Stack.Screen name="[id]" options={{headerTitle:"MurMur"}}/>
     </Stack>
   );

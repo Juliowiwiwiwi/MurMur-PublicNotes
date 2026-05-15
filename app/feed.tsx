@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, Image, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -54,7 +54,20 @@ export default function Feed() {
   const getFilteredNotes= () => {
     if(activeCategory==="All") return MOCK_NOTES;
     return MOCK_NOTES.filter(note => note.type === activeCategory)
-  }
+  };
+
+
+  const [isAddOpen, setAddOpen]=useState(false);
+  const toggleAdd=()=>{
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAddOpen(!isAddOpen);
+  };
+
+  const handleCreate=(type:string)=>{
+    toggleAdd();
+    router.push({pathname:"/create", params:{type}});
+  };
+
 
 
 
@@ -202,16 +215,31 @@ export default function Feed() {
       )}/>
     
 
-
-      <TouchableOpacity 
-       style={styles.add}
-       activeOpacity={0.8}
-       onPress={()=>{
-        //will do later
-        console.log("Add button pressed to creat new note")
-       }} >
-        <Text style={styles.addIcon}>+</Text>
-      </TouchableOpacity>
+        {isAddOpen && (
+        <TouchableOpacity 
+          style={styles.addOverlay} 
+          activeOpacity={1} 
+          onPress={toggleAdd} 
+        />
+      )}
+        {isAddOpen && (
+          <View style={styles.addMenu}>
+            <TouchableOpacity style={styles.miniAdd} onPress={()=> handleCreate('Audio')}>
+              <Text style={styles.miniAddText}>Audio</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.miniAdd} onPress={()=> handleCreate('Image')}>
+              <Text style={styles.miniAddText}>Image</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.miniAdd} onPress={()=> handleCreate('Text')}>
+              <Text style={styles.miniAddText}>Text</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <TouchableOpacity style={styles.add}
+          activeOpacity={0.8}
+          onPress={toggleAdd}>
+          <Text style={[styles.addIcon, isAddOpen && {transform:[{rotate:'45 deg'}]}]}>+</Text>
+        </TouchableOpacity>
 
 
 
@@ -459,8 +487,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff', 
     justifyContent: 'center',
     alignItems: 'center',
-    // Shadow for depth
-    elevation: 8,
+    elevation: 20,
+    zIndex:20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -471,5 +499,41 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '300', 
     marginTop: -2, 
+  },
+  addMenu: {
+    position: 'absolute',
+    bottom: 100,
+    right: 30,
+    alignItems: 'flex-end',
+    zIndex:20,
+    elevation:20,
+
+  },
+  miniAdd: {
+    backgroundColor: '#ffffff', 
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginBottom: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  miniAddText: {
+    color: '#000000',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  addOverlay:{
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    zIndex: 10, 
+    elevation:10,
   },
 });
