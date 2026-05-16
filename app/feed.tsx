@@ -183,7 +183,7 @@ export default function Feed() {
         <Text style={styles.TemporaryNotessection}>No whispers found.</Text>
       }
       renderItem={({item})=>(
-        <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>{/* will do it later */}}>
+        <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>router.push(`/${item.id}`)}>
           <View style={styles.cardHeader}>
             <Text style={styles.authorText}>@{item.author}</Text>
             <Text style={styles.timeText}>{item.time}</Text>
@@ -215,6 +215,8 @@ export default function Feed() {
       )}/>
     
 
+
+{/* creating note part */}
         {isAddOpen && (
         <TouchableOpacity 
           style={styles.addOverlay} 

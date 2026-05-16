@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.GlobalNotes"
+      "package": "com.anonymous.GlobalNotes",
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "output": "static",
@@ -40,7 +41,7 @@
           }
         }
       ],
-      "expo-audio",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
