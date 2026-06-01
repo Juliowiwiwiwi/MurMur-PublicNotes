@@ -1,8 +1,11 @@
-    import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { decode } from 'base64-arraybuffer';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { supabase } from '../supabase';
 
 
 
@@ -74,6 +77,7 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
         const[selectedImage,setSelectedImage]=useState<string | null>(null);
 
         const[audioUri,setAudioUri]=useState<string | null>(null);
+        const[isUploading,setIsUploading]=useState(false);
         const audioRecorder=useAudioRecorder(RecordingPresets.HIGH_QUALITY);
         const recorderState=useAudioRecorderState(audioRecorder);
 
@@ -120,12 +124,82 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 
         
 
-        const handlePost=()=>{
-            console.log(`Posting new ${type} Whisper: `, title, note, selectedImage, audioUri)
-            router.back()
-        }
+        const uploadMedia=async (uri:string, mediaType: 'Image'|'Audio') => {
+            const ext= mediaType==='Image'? 'jpg' : 'm4a';
+            const filename = `${mediaType.toLowerCase()}_${Date.now()}.${ext}`;
 
-        const isPostDisabled = title.trim().length===0 && note.trim().length===0 && !selectedImage && !audioUri;
+            try {
+                console.log(`Starting Supabase upload for ${filename}...`);
+                const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+                
+                const anonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY; 
+                const localFile = new File(uri);
+                const base64String = await localFile.base64();
+                const arrayBuffer = decode(base64String);
+
+                 const { error } = await supabase.storage
+                    .from('media')
+                    .upload(filename, arrayBuffer, {
+                        contentType: mediaType === 'Image' ? 'image/jpeg' : 'audio/m4a',
+                    });
+
+
+
+                if (error) throw error;
+
+                // 3. Just ask Supabase for the URL string
+                const {data:{publicUrl}} = supabase.storage
+                    .from('media')
+                    .getPublicUrl(filename);
+                
+                return publicUrl;
+                
+            } catch (err) {
+                console.log("=== Supabase UPLOAD ERROR ===");
+                console.log(err);
+                throw err;
+            }
+        };
+
+        const handlePost=async()=>{
+            if (isUploading) return;
+            setIsUploading(true);
+
+            try{
+                let mediaUrl=null;
+                if(selectedImage){
+                    mediaUrl=await uploadMedia(selectedImage,'Image');
+                }else if (audioUri){
+                    mediaUrl=await uploadMedia(audioUri,'Audio');
+                }
+                const {error}= await supabase
+                .from('whispers')
+                .insert([
+                    {
+                        title:title.trim(),
+                        content:note.trim(),
+                        type:type,
+                        media_url:mediaUrl,
+                        author:'devanarayan'
+                    }
+                ]);
+            
+            if (error) throw error;
+            console.log("Upload Successful");
+            setIsUploading(false);
+            router.back();
+
+            }catch(error){
+                console.error("Upload failed: ", error);
+                Alert.alert("Error", "Failed to upload whisper. Try again. :(");
+                console.log(JSON.stringify(error, null, 2));
+                setIsUploading(false);
+            }
+        };
+        const isPostDisabled = (title.trim().length === 0 && note.trim().length === 0 && !selectedImage && !audioUri) || isUploading;
+
+
+            
 
     return (
         <KeyboardAvoidingView 
@@ -140,7 +214,12 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
                 headerTintColor:'white',
                 headerRight:()=>(
                     <TouchableOpacity onPress={handlePost} disabled={isPostDisabled}>
-                        <Text style={[styles.postButton, isPostDisabled && styles.postButtonDisabled]}>Post</Text>
+                        {isUploading?(
+                            <ActivityIndicator color="#fff" style={{ marginRight: 10 }} />
+                        ) : (
+                            <Text style={[styles.postButton, isPostDisabled && styles.postButtonDisabled]}>Post</Text>
+                        )
+                        }
                     </TouchableOpacity>
                 )
             }} />
