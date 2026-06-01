@@ -23,10 +23,10 @@ MurMur is inspired by the idea of a fridge covered in sticky notes — random th
 - React Native
 - Expo
 - TypeScript
-- Firebase Authentication
-- Firestore Database
-- Firebase Storage
-- AsyncStorage
+- Supabase Authentication
+- Supabase Database
+- Supabase Storage
+
 
 ---
 
