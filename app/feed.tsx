@@ -1,7 +1,8 @@
-import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { FlatList, Image, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Image, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { supabase } from '../supabase';
 
 //greeting for header
 const getGreeting = () => {
@@ -52,8 +53,8 @@ export default function Feed() {
   const categories = ["All","Text","Image","Audio"];
 
   const getFilteredNotes= () => {
-    if(activeCategory==="All") return MOCK_NOTES;
-    return MOCK_NOTES.filter(note => note.type === activeCategory)
+    if(activeCategory==="All") return notes;
+    return notes.filter(note => note.type === activeCategory)
   };
 
 
@@ -68,36 +69,29 @@ export default function Feed() {
     router.push({pathname:"/create", params:{type}});
   };
 
+  const[notes,setNotes]=useState<any[]>([]);
+  const[loading,setLoading]=useState(true);
 
+  const fetchNotes=async () => {
+    setLoading(true);
+    const {data, error} = await supabase
+      .from('whispers')
+      .select ('*')
+      .order('created_at', {ascending:false});
+    
+    if (error){
+      console.error("Error fetching notes:", error);
+    }else{
+      setNotes(data||[]);
+    }
+    setLoading(false);
+  };
 
-
-  const MOCK_NOTES = [
-  { 
-    id: '1', 
-    author: 'devanarayan', 
-    type: 'Text', 
-    content: 'The layout animation for the history toggle is finally working smoothly!', 
-    time: '2m ago', 
-    comments: 3 
-  },
-  { 
-    id: '2', 
-    author: 'lyra_notes', 
-    type: 'Image', 
-    content: 'Caught this view while thinking about the new app design.', 
-    imageUrl: 'https://images3.memedroid.com/images/UPLOADED274/58ccc9a89e2ca.jpeg', 
-    time: '45m ago', 
-    comments: 8 
-  },
-  { 
-    id: '3', 
-    author: 'pixel_poet', 
-    type: 'Audio', 
-    content: 'A quick voice memo about the project roadmap.', 
-    time: '2h ago', 
-    comments: 1 
-  },
-];
+  useFocusEffect(
+    useCallback(()=>{
+      fetchNotes();
+    },[])
+  );
 
 
 
@@ -180,7 +174,11 @@ export default function Feed() {
       keyExtractor={(item=>item.id)}
       contentContainerStyle={{paddingBottom:100,paddingTop:10,}}
       ListEmptyComponent={
+        loading?(
+          <ActivityIndicator size="large" color="#fff" style={{ marginTop: 50 }} />
+        ) : (
         <Text style={styles.TemporaryNotessection}>No whispers found.</Text>
+      )
       }
       renderItem={({item})=>(
         <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>router.push(`/${item.id}`)}>
