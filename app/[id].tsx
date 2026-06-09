@@ -1,120 +1,237 @@
+import { supabase } from '@/supabase';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+
+const AudioPlayerCard = ({ uri }: { uri: string }) => {
+  const player = useAudioPlayer(uri);
+  const status = useAudioPlayerStatus(player);
+
+  const togglePlay = () => {
+    if (status.playing) {
+      player.pause();
+    } else {
+      if (status.currentTime >= status.duration && status.duration > 0) {
+        player.seekTo(0);
+      }
+      player.play();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const progressPercent = status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0;
+
+  return (
+    <View style={styles.playerCard}>
+      <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
+        <Text style={styles.playIcon}>{status.playing ? "⏸" : "▶️"}</Text>
+      </TouchableOpacity>
+      <View style={styles.waveformContainer}>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+        </View>
+        <View style={styles.timeRow}>
+          <Text style={styles.timeText}>{formatTime(status.currentTime)}</Text>
+          <Text style={styles.timeText}>
+            {status.duration > 0 ? formatTime(status.duration) : "..."}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
 
 export default function ID() {
 
-  const id =useLocalSearchParams();
-  const[replyText,setReplyText]=useState('');
+  const { id } = useLocalSearchParams(); // Destructured properly
+  const [replyText, setReplyText] = useState('');
 
-  const mockPost = {
-        id: id,
-        author: 'lyra_notes',
-        time: '45m ago',
-        content: "Caught this view while thinking about the new app design. It's coming together nicely!",
-        type: 'Image', 
-        imageUrl: 'https://images3.memedroid.com/images/UPLOADED274/58ccc9a89e2ca.jpeg',
-    };
+  const [post, setPost] = useState<any>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
 
-  const mockComments = [
-        { id: 'c1', author: 'pixel_poet', text: 'This looks incredibly peaceful.', time: '30m ago' },
-        { id: 'c2', author: 'devanarayan', text: 'The UI is looking sharp so far!', time: '15m ago' },
-        { id: 'c3', author: 'juliocodes', text: 'What stack are you using for the backend?', time: '2m ago' },
-    ];
+  const fetchWhisper = async () => {
+    if(!id) return;
+    try {
+      const { data: postData, error: postError } = await supabase
+        .from('whispers')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (postError) throw postError;
+      setPost(postData);
 
-  const handleSendReply=()=>{
-    console.log("Sending relpy:", replyText);
-    setReplyText('');//cleanup after sending
-  };
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('whisper_id', id)
+        .order('created_at', { ascending: true });
+        
+      if (commentsError) throw commentsError;
+      setComments(commentsData || []);
+    } catch (error) {
+      console.error("error getting whisper", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
+  useEffect(() => {
+    if (id) fetchWhisper();
+  }, [id]);
 
-  const renderMainPost=()=>(
-    <View style={styles.mainPostContainer}>
+  const handleSendReply = async () => {
+    if (!id || replyText.trim() === '' || isSending) return;
+    setIsSending(true);
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .insert([{
+          whisper_id: id,
+          author: 'devanarayan', // Hardcoded for now
+          content: replyText.trim(),
+        }]);
+      
+      if (error) throw error;
+      
+      setReplyText('');
+      fetchWhisper(); // Refresh comments instantly
+    } catch (error) {
+      console.error("Error posting comment:", error);
+      Alert.alert("Error", "Could not post your reply.");
+    } finally {
+      setIsSending(false);
+    }
+  }
 
-      <View style={styles.postHeader}>
-        <Text style={styles.authorText}>@{mockPost.author}</Text>
-        <Text style={styles.timeText}>@{mockPost.time}</Text>
-      </View>
-
-      <Text style={styles.postContent} >{mockPost.content}</Text> 
-
-      {mockPost.type==="Image" && mockPost.imageUrl &&(
-        <View style={styles.imageContainer}>
-          <Image
-          source={{uri:mockPost.imageUrl}}
-          style={styles.postImage} resizeMode='contain'/>
+  const renderMainPost = () => {
+    if (!post) return null;
+    return (
+      <View style={styles.mainPostContainer}>
+        <View style={styles.postHeader}>
+          <Text style={styles.authorText}>@{post.author}</Text>
         </View>
+
+        <Text style={styles.postContent}>{post.content}</Text> 
+
+        {/* rendering image whisper */}
+        {post.type === "Image" && post.media_url && (
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: post.media_url }}
+              style={styles.postImage}
+              resizeMode='cover'
+            />
+          </View>
+        )}
+        
+        {/* rendering audio whisper */}
+        {post.type === "Audio" && post.media_url && (
+        <AudioPlayerCard uri={post.media_url} />
       )}
-      <View style={styles.divider} />
-      <Text style={styles.commentsTitle}>Comments({mockComments.length})</Text>
-    </View>
-  );
 
+        <View style={styles.divider} />
+        <Text style={styles.commentsTitle}>Comments ({comments.length})</Text>
+      </View>
+    );
+  }
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centerContent]}>
+        <Stack.Screen options={{ headerStyle: { backgroundColor: '#000' }, headerTintColor: '#fff' }}/>
+        <ActivityIndicator size="large" color="#fff" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!post) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centerContent]}>
+        <Text style={styles.commentText}>Whisper not found.</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* KeyboardAvoidingView prevents the keyboard from covering the text input */}
       <KeyboardAvoidingView 
-        style={{flex:1}}
-        behavior={Platform.OS==="ios"? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS==="ios"? 90: 0}>
+        style={{flex: 1}}
+        behavior={Platform.OS === "ios" ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
+        <Stack.Screen options={{
+          headerTintColor: '#fff',
+          headerTitle: "Whisper",
+          headerStyle: { backgroundColor: '#000' },
+        }}/>
 
-
-          <Stack.Screen options={{
-            headerTintColor:'#fff',
-            headerTitle:"Whisper",
-            headerStyle:{backgroundColor:'#000'},
-          }}/>
-
-
-          <FlatList
-            data={mockComments}
-            keyboardShouldPersistTaps="handled"
-            keyExtractor={(item)=>item.id}
-            ListHeaderComponent={renderMainPost}
-            contentContainerStyle={{paddingBottom:30}}
-            renderItem={({item})=>(
-              <View style={styles.commentCard}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.commentAuthor}>@{item.author}</Text>
-                  <Text style={styles.timeText}>{item.time}</Text>
-                </View>
-                <Text style={styles.commentText}>{item.text}</Text>
+        <FlatList
+          data={comments}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={renderMainPost}
+          contentContainerStyle={{ paddingBottom: 30 }}
+          ListEmptyComponent={
+            <Text style={{color: '#666', textAlign: 'center', marginTop: 20}}>Be the first to reply...</Text>
+          }
+          renderItem={({item}) => (
+            <View style={styles.commentCard}>
+              <View style={styles.commentHeader}>
+                <Text style={styles.commentAuthor}>@{item.author}</Text>
               </View>
-            )}
+              <Text style={styles.commentText}>{item.content}</Text>
+            </View>
+          )}
+        />
+
+        <View style={styles.replyContainer}>
+          <TextInput
+            style={styles.replyInput}
+            placeholder="Write a reply..."
+            placeholderTextColor="#666"
+            value={replyText}
+            onChangeText={setReplyText}
+            multiline
+            textAlignVertical="center"
           />
-
-          
-          <View style={styles.replyContainer}>
-            <TextInput 
-              style={styles.replyInput}
-              placeholder='Reply to this Whisper'
-              placeholderTextColor='#666'
-              value={replyText}
-              onChangeText={setReplyText}
-              multiline
-              scrollEnabled={true}
-              textAlignVertical="center"
-            />
-            <TouchableOpacity 
-              style={[styles.sendButton, replyText.trim().length === 0 && styles.sendButtonDisabled]}
-              onPress={handleSendReply}
-            >
-              <Text style={styles.sendButtonText}>↑</Text>
-            </TouchableOpacity>
-          </View>
-
-
+          <TouchableOpacity
+            style={[styles.sendButton, (replyText.trim() === '' || isSending) && styles.sendButtonDisabled]}
+            onPress={handleSendReply}
+            disabled={replyText.trim() === '' || isSending}
+          >
+            {isSending ? (
+               <ActivityIndicator size="small" color="#000" />
+            ) : (
+               <Text style={styles.sendButtonText}>↑</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000',
+    },
+    centerContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     mainPostContainer: {
         padding: 20,
@@ -128,10 +245,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 16,
-    },
-    timeText: {
-        color: '#666',
-        fontSize: 12,
     },
     postContent: {
         color: '#efefef',
@@ -184,8 +297,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
         paddingHorizontal: 15,
-        paddingTop:15,
-        paddingBottom:Platform.OS==='ios'? 20 : 15,
+        paddingTop: 15,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 15,
         backgroundColor: '#0a0a0a',
         borderTopWidth: 1,
         borderTopColor: '#1a1a1a',
@@ -219,5 +332,56 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         marginTop: -2,
-    }
+    },
+    playerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    width: '100%',
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+    marginBottom: 15,
+  },
+  playButton: {
+    width: 45,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  playIcon: {
+    fontSize: 18,
+    color: '#000',
+  },
+  waveformContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: '#333',
+    borderRadius: 3,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 3,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  timeText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });
