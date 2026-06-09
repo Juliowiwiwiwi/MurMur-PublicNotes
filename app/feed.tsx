@@ -1,103 +1,134 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Image, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, LayoutAnimation, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from '../supabase';
+import { AudioPlayerCard } from './components/AudioPlayerCard';
+import { getRelativeTime } from './utils/time';
 
 //greeting for header
 const getGreeting = () => {
   const hr = new Date().getHours();
-  if(hr < 12) return "Good Morning";
-  if(hr < 18) return "Good Afternoon";
+  if (hr < 12) return "Good Morning";
+  if (hr < 18) return "Good Afternoon";
   return "Good Evening";
 };
 
-if(Platform.OS==="android" &&UIManager.setLayoutAnimationEnabledExperimental){
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export default function Feed() {
-  const {user}=useLocalSearchParams();
+  const { user } = useLocalSearchParams();
   const greeting = getGreeting();
-  
-  const [isExpanded, setExpanded]=useState(false);
+
+  const [isExpanded, setExpanded] = useState(false);
 
   //Dates setting
-  const dates=useMemo(() => {
-    const _dates=[];
-    for (let i=0; i<14 ;i++){
+  const dates = useMemo(() => {
+    const _dates = [];
+    for (let i = 0; i < 14; i++) {
       const d = new Date();
-      d.setDate(d.getDate()-i);
+      d.setDate(d.getDate() - i);
+
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const yyyymmdd = `${year}-${month}-${day}`;
+
       _dates.push({
-        day:d.toLocaleDateString('en-us', {weekday:"short"}),
-        date:d.getDate().toString(),
-        month:d.toLocaleDateString('en-us',{month:"short"}),
-        full:d.toDateString(),
+        day: d.toLocaleDateString('en-us', { weekday: "short" }),
+        date: d.getDate().toString(),
+        month: d.toLocaleDateString('en-us', { month: "short" }),
+        full: d.toDateString(),
+        normalized: yyyymmdd,
       });
     }
     return _dates;
-  },[]);
+  }, []);
 
-  const[selectedDate,setSelectedDate]=useState(dates[0].full);
+  const [selectedDate, setSelectedDate] = useState(dates[0].normalized);
 
   const currentSelected = dates.find(
-    item => item.full === selectedDate
+    item => item.normalized === selectedDate
   );
 
-  const toggleHeader=()=>{
+  const toggleHeader = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(!isExpanded);
   };
 
-  const [activeCategory, setActiveCategory]=useState("All");
-  const categories = ["All","Text","Image","Audio"];
+  const [activeCategory, setActiveCategory] = useState("All");
+  const categories = ["All", "Text", "Image", "Audio"];
 
-  const getFilteredNotes= () => {
-    if(activeCategory==="All") return notes;
-    return notes.filter(note => note.type === activeCategory)
+  const getFilteredNotes = () => {
+    let filtered = notes;
+    if (activeCategory !== "All") {
+      filtered = filtered.filter(note => note.type === activeCategory);
+    }
+
+    // Normalize note created_at to local YYYY-MM-DD
+    filtered = filtered.filter(note => {
+      const d = new Date(note.created_at);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const yyyymmdd = `${year}-${month}-${day}`;
+      return yyyymmdd === selectedDate;
+    });
+
+    return filtered;
   };
 
 
-  const [isAddOpen, setAddOpen]=useState(false);
-  const toggleAdd=()=>{
+  const [isAddOpen, setAddOpen] = useState(false);
+  const toggleAdd = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setAddOpen(!isAddOpen);
   };
 
-  const handleCreate=(type:string)=>{
+  const handleCreate = (type: string) => {
     toggleAdd();
-    router.push({pathname:"/create", params:{type}});
+    router.push({ pathname: "/create", params: { type, user } });
   };
 
-  const[notes,setNotes]=useState<any[]>([]);
-  const[loading,setLoading]=useState(true);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchNotes=async () => {
+  const fetchNotes = async () => {
     setLoading(true);
-    const {data, error} = await supabase
+    const { data, error } = await supabase
       .from('whispers')
-      .select ('*')
-      .order('created_at', {ascending:false});
-    
-    if (error){
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
       console.error("Error fetching notes:", error);
-    }else{
-      setNotes(data||[]);
+    } else {
+      setNotes(data || []);
     }
     setLoading(false);
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotes();
+    setRefreshing(false);
+  };
+
   useFocusEffect(
-    useCallback(()=>{
+    useCallback(() => {
       fetchNotes();
-    },[])
+    }, [])
   );
 
 
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{headerTitle:`${greeting}, ${user}`}} />
+      <Stack.Screen options={{ headerTitle: `${greeting}, ${user}` }} />
       {/*This will be the permanent Header. Trigger and the calendar will be wrapped in modal */}
       <View style={styles.headerWrapper}>
         <TouchableOpacity onPress={toggleHeader} style={styles.closedContainer}>
@@ -114,10 +145,10 @@ export default function Feed() {
         transparent={true}
         animationType="fade"
         onRequestClose={toggleHeader}
-    >
+      >
         <TouchableOpacity onPress={toggleHeader} style={styles.modalOverlay} activeOpacity={1}>
           {/* THE MAIN FLOATING CARD */}
-          <View style={styles.calendarPopout} onStartShouldSetResponder={()=>true}>
+          <View style={styles.calendarPopout} onStartShouldSetResponder={() => true}>
             <View style={styles.popoutHeader}>
               <Text style={styles.popoutTitle}>History</Text>
               <TouchableOpacity onPress={toggleHeader} style={styles.doneButton}>
@@ -126,12 +157,12 @@ export default function Feed() {
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {dates.map((item) =>{
-                const isSelected = selectedDate===item.full
-                return(
+              {dates.map((item) => {
+                const isSelected = selectedDate === item.normalized
+                return (
                   <TouchableOpacity
-                    key={item.full}
-                    onPress={()=>setSelectedDate(item.full)}
+                    key={item.normalized}
+                    onPress={() => setSelectedDate(item.normalized)}
                     style={[styles.dateCard, isSelected && styles.activeCard]}
                   >
                     <Text style={[styles.dayText, isSelected && styles.activeText]}>{item.day}</Text>
@@ -143,103 +174,98 @@ export default function Feed() {
           </View>
         </TouchableOpacity>
       </Modal>
-        
+
 
 
 
 
       {/* The category thing scroller for all image text audio */}
       <View style={styles.filterSection}>
-        <ScrollView style ={styles.filterScroll}  horizontal showsHorizontalScrollIndicator={false} >
-          {categories.map((cat) =>{
-            const isSelectedCat= activeCategory=== cat;
+        <ScrollView style={styles.filterScroll} horizontal showsHorizontalScrollIndicator={false} >
+          {categories.map((cat) => {
+            const isSelectedCat = activeCategory === cat;
             return (
-              <TouchableOpacity key ={cat} onPress={()=>setActiveCategory(cat)} 
-              style={[styles.pill,isSelectedCat&&styles.activePill]}>
-                <Text style={[styles.pillText,isSelectedCat&&styles.activePillText]}>
+              <TouchableOpacity key={cat} onPress={() => setActiveCategory(cat)}
+                style={[styles.pill, isSelectedCat && styles.activePill]}>
+                <Text style={[styles.pillText, isSelectedCat && styles.activePillText]}>
                   {cat}
                 </Text>
               </TouchableOpacity>
-            )})}
+            )
+          })}
         </ScrollView>
       </View>
 
-      
-      
-      
-      
-      
+
+
+
+
+
       {/* The main notes part */}
       <FlatList data={getFilteredNotes()}
-      keyExtractor={(item=>item.id)}
-      contentContainerStyle={{paddingBottom:100,paddingTop:10,}}
-      ListEmptyComponent={
-        loading?(
-          <ActivityIndicator size="large" color="#fff" style={{ marginTop: 50 }} />
-        ) : (
-        <Text style={styles.TemporaryNotessection}>No whispers found.</Text>
-      )
-      }
-      renderItem={({item})=>(
-        <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={()=>router.push(`/${item.id}`)}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.authorText}>@{item.author}</Text>
-            <Text style={styles.timeText}>{item.time}</Text>
-          </View>
-          <Text style={styles.cardContent}>{item.content}</Text>
-
-          {item.type==="Image" && item.media_url && (
-            <View style={styles.noteImageContainer}>
-              <Image
-              source={{uri:item.media_url}}
-              style={styles.noteImage}
-              resizeMode="cover"/>
+        keyExtractor={(item => item.id)}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+        }
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: 10, }}
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator size="large" color="#fff" style={{ marginTop: 50 }} />
+          ) : (
+            <Text style={styles.TemporaryNotessection}>No whispers found.</Text>
+          )
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={() => router.push({ pathname: '/[id]', params: { id: item.id, user } })}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.authorText}>@{item.author}</Text>
+              <Text style={styles.timeText}>{getRelativeTime(item.created_at)}</Text>
             </View>
-          )}
-          {item.type==="Audio" && (
-            <View style={styles.audioPlayer}>
-              <View style={styles.playButton}>
-                <Text style={styles.playIcon}>▶</Text>
+            {item.type !== "Audio" && item.title ? <Text style={styles.cardTitle}>{item.title}</Text> : null}
+            {item.content ? <Text style={styles.cardContent}>{item.content}</Text> : null}
+
+            {item.type === "Image" && item.media_url && (
+              <View style={styles.noteImageContainer}>
+                <Image
+                  source={{ uri: item.media_url }}
+                  style={styles.noteImage}
+                  resizeMode="cover" />
               </View>
-              <View style={styles.waveFormPlaceholder}>
-                <View style={[styles.waveBar, {height: 10}]} />
-                <View style={[styles.waveBar, {height: 20}]} />
-                <View style={[styles.waveBar, {height: 15}]} />
-                <View style={[styles.waveBar, {height: 25}]} />
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
-      )}/>
-    
+            )}
+            {item.type === "Audio" && item.media_url && (
+              <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} />
+            )}
+          </TouchableOpacity>
+        )} />
 
 
-{/* creating note part */}
-        {isAddOpen && (
-        <TouchableOpacity 
-          style={styles.addOverlay} 
-          activeOpacity={1} 
-          onPress={toggleAdd} 
+
+      {/* creating note part */}
+      {isAddOpen && (
+        <TouchableOpacity
+          style={styles.addOverlay}
+          activeOpacity={1}
+          onPress={toggleAdd}
         />
       )}
-        {isAddOpen && (
-          <View style={styles.addMenu}>
-            <TouchableOpacity style={styles.miniAdd} onPress={()=> handleCreate('Audio')}>
-              <Text style={styles.miniAddText}>Audio</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.miniAdd} onPress={()=> handleCreate('Image')}>
-              <Text style={styles.miniAddText}>Image</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.miniAdd} onPress={()=> handleCreate('Text')}>
-              <Text style={styles.miniAddText}>Text</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        <TouchableOpacity style={styles.add}
-          activeOpacity={0.8}
-          onPress={toggleAdd}>
-          <Text style={[styles.addIcon, isAddOpen && {transform:[{rotate:'45 deg'}]}]}>+</Text>
-        </TouchableOpacity>
+      {isAddOpen && (
+        <View style={styles.addMenu}>
+          <TouchableOpacity style={styles.miniAdd} onPress={() => handleCreate('Audio')}>
+            <Text style={styles.miniAddText}>Audio</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.miniAdd} onPress={() => handleCreate('Image')}>
+            <Text style={styles.miniAddText}>Image</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.miniAdd} onPress={() => handleCreate('Text')}>
+            <Text style={styles.miniAddText}>Text</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      <TouchableOpacity style={styles.add}
+        activeOpacity={0.8}
+        onPress={toggleAdd}>
+        <Text style={[styles.addIcon, isAddOpen && { transform: [{ rotate: '45 deg' }] }]}>+</Text>
+      </TouchableOpacity>
 
 
 
@@ -251,14 +277,14 @@ export default function Feed() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000', 
+    backgroundColor: '#000',
   },
   headerWrapper: {
     paddingHorizontal: 25,
     paddingVertical: 15,
     backgroundColor: '#000',
     borderBottomWidth: 1,
-    borderColor: '#1a1a1a', 
+    borderColor: '#1a1a1a',
   },
   // CLOSED STATE
   closedContainer: {
@@ -267,7 +293,7 @@ const styles = StyleSheet.create({
   todayText: {
     color: '#fff',
     fontSize: 28,
-    fontWeight: '900', 
+    fontWeight: '900',
   },
   tapHint: {
     color: '#a1a1a1',
@@ -280,9 +306,9 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-start',
-    marginVertical:150,
+    marginVertical: 150,
     alignItems: 'center',
   },
   calendarPopout: {
@@ -312,7 +338,7 @@ const styles = StyleSheet.create({
   doneButton: {
     paddingHorizontal: 15,
     paddingVertical: 8,
-    backgroundColor: '#131441',
+    backgroundColor: '#000000ff',
     borderRadius: 10,
   },
   doneText: {
@@ -329,7 +355,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   activeCard: {
-    backgroundColor: '#6366f1', 
+    backgroundColor: '#000000ff',
   },
   dayText: {
     color: '#a1a1a1',
@@ -345,29 +371,29 @@ const styles = StyleSheet.create({
   activeText: {
     color: '#fff',
   },
-  TemporaryNotessection:{
-    color:'#fff',
-    fontSize:18,
-    textAlign:'center',
-    padding:30,
-    margin:15,
+  TemporaryNotessection: {
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
+    padding: 30,
+    margin: 15,
   },
-  emptyBox:{
-    textAlign:'center',
-    backgroundColor:'#08ded6',
-    padding:20,
-    margin:20,
-    borderRadius:25,
-    borderWidth:2,
-    borderColor:'#fff',
+  emptyBox: {
+    textAlign: 'center',
+    backgroundColor: '#08ded6',
+    padding: 20,
+    margin: 20,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
-  boxText:{
-  color:'#000000',
-    fontSize:18,
-    textAlign:'center',
-    padding:30,
-    margin:15,
-    fontWeight:'bold',
+  boxText: {
+    color: '#000000',
+    fontSize: 18,
+    textAlign: 'center',
+    padding: 30,
+    margin: 15,
+    fontWeight: 'bold',
   },
   filterSection: {
     marginTop: 10,
@@ -394,12 +420,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   activePillText: {
-    color: '#000', 
+    color: '#000',
   },
   noteCard: {
     backgroundColor: '#111',
     marginHorizontal: 20,
-    marginBottom: 15, 
+    marginBottom: 15,
     padding: 20,
     borderRadius: 25,
     borderWidth: 1,
@@ -411,13 +437,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   authorText: {
-    color: '#ffffff', 
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 14,
   },
   timeText: {
     color: '#666',
     fontSize: 12,
+  },
+  cardTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   cardContent: {
     color: '#efefef',
@@ -427,7 +459,7 @@ const styles = StyleSheet.create({
   },
   noteImageContainer: {
     height: 180,
-    width:'100%',
+    width: '100%',
     backgroundColor: '#1a1a1a',
     borderRadius: 15,
     justifyContent: 'center',
@@ -435,16 +467,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
   },
-  noteImage:{
-    width:'100%',
-    height:'100%',
-    borderRadius:15,
+  noteImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 15,
 
   },
   audioPlayer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131441', 
+    backgroundColor: '#131441',
     padding: 12,
     borderRadius: 15,
     marginBottom: 12,
@@ -480,15 +512,15 @@ const styles = StyleSheet.create({
   add: {
     position: 'absolute',
     bottom: 30, // 
-    right: 30,  
+    right: 30,
     width: 60,
     height: 60,
-    borderRadius: 30, 
-    backgroundColor: '#ffffff', 
+    borderRadius: 30,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 20,
-    zIndex:20,
+    zIndex: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -497,20 +529,20 @@ const styles = StyleSheet.create({
   addIcon: {
     color: '#000000',
     fontSize: 32,
-    fontWeight: '300', 
-    marginTop: -2, 
+    fontWeight: '300',
+    marginTop: -2,
   },
   addMenu: {
     position: 'absolute',
     bottom: 100,
     right: 30,
     alignItems: 'flex-end',
-    zIndex:20,
-    elevation:20,
+    zIndex: 20,
+    elevation: 20,
 
   },
   miniAdd: {
-    backgroundColor: '#ffffff', 
+    backgroundColor: '#ffffff',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 25,
@@ -526,14 +558,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  addOverlay:{
+  addOverlay: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)', 
-    zIndex: 10, 
-    elevation:10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 10,
+    elevation: 10,
   },
 });

@@ -1,65 +1,26 @@
 import { supabase } from '@/supabase';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { AudioPlayerCard } from './components/AudioPlayerCard';
+import { getRelativeTime } from './utils/time';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
-const AudioPlayerCard = ({ uri }: { uri: string }) => {
-  const player = useAudioPlayer(uri);
-  const status = useAudioPlayerStatus(player);
-
-  const togglePlay = () => {
-    if (status.playing) {
-      player.pause();
-    } else {
-      if (status.currentTime >= status.duration && status.duration > 0) {
-        player.seekTo(0);
-      }
-      player.play();
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const progressPercent = status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0;
-
-  return (
-    <View style={styles.playerCard}>
-      <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
-        <Text style={styles.playIcon}>{status.playing ? "⏸" : "▶️"}</Text>
-      </TouchableOpacity>
-      <View style={styles.waveformContainer}>
-        <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-        </View>
-        <View style={styles.timeRow}>
-          <Text style={styles.timeText}>{formatTime(status.currentTime)}</Text>
-          <Text style={styles.timeText}>
-            {status.duration > 0 ? formatTime(status.duration) : "..."}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-};
-
 export default function ID() {
 
-  const { id } = useLocalSearchParams(); // Destructured properly
+  const { id, user } = useLocalSearchParams();
+  const router = useRouter();
   const [replyText, setReplyText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{id: string, author: string} | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
   const [post, setPost] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  const fetchWhisper = async () => {
+  const fetchWhisper = useCallback(async () => {
     if(!id) return;
     try {
       const { data: postData, error: postError } = await supabase
@@ -84,11 +45,11 @@ export default function ID() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     if (id) fetchWhisper();
-  }, [id]);
+  }, [id, fetchWhisper]);
 
   const handleSendReply = async () => {
     if (!id || replyText.trim() === '' || isSending) return;
@@ -98,13 +59,15 @@ export default function ID() {
         .from('comments')
         .insert([{
           whisper_id: id,
-          author: 'devanarayan', // Hardcoded for now
+          author: user as string,
           content: replyText.trim(),
+          parent_comment_id: replyingTo ? replyingTo.id : null,
         }]);
       
       if (error) throw error;
       
       setReplyText('');
+      setReplyingTo(null);
       fetchWhisper(); // Refresh comments instantly
     } catch (error) {
       console.error("Error posting comment:", error);
@@ -114,13 +77,73 @@ export default function ID() {
     }
   }
 
+  const handleDeletePost = () => {
+    Alert.alert("Delete Whisper", "Are you sure you want to delete this whisper?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        try {
+          setIsLoading(true);
+          const { error } = await supabase.from('whispers').delete().eq('id', id);
+          if (error) throw error;
+          router.back();
+        } catch (e) {
+          console.error("Error deleting post", e);
+          Alert.alert("Error", "Could not delete post.");
+          setIsLoading(false);
+        }
+      } }
+    ]);
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    Alert.alert("Delete Comment", "Are you sure you want to delete this comment?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        try {
+          const { error } = await supabase.from('comments').delete().eq('id', commentId);
+          if (error) throw error;
+          fetchWhisper();
+        } catch (e) {
+          console.error("Error deleting comment", e);
+          Alert.alert("Error", "Could not delete comment.");
+        }
+      } }
+    ]);
+  };
+
+  const toggleReplies = (commentId: string) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+  };
+
+  const topLevelComments = comments.filter(c => !c.parent_comment_id);
+  const repliesByParent = comments.reduce((acc, comment) => {
+    if (comment.parent_comment_id) {
+      if (!acc[comment.parent_comment_id]) acc[comment.parent_comment_id] = [];
+      acc[comment.parent_comment_id].push(comment);
+    }
+    return acc;
+  }, {} as Record<string, any[]>);
+
   const renderMainPost = () => {
     if (!post) return null;
     return (
       <View style={styles.mainPostContainer}>
         <View style={styles.postHeader}>
           <Text style={styles.authorText}>@{post.author}</Text>
+          {user === post.author && (
+            <TouchableOpacity onPress={handleDeletePost}>
+              <Text style={styles.deleteText}>Delete</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Title if not Audio */}
+        {post.type !== "Audio" && post.title ? (
+          <Text style={{color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 10}}>{post.title}</Text>
+        ) : null}
 
         <Text style={styles.postContent}>{post.content}</Text> 
 
@@ -137,7 +160,7 @@ export default function ID() {
         
         {/* rendering audio whisper */}
         {post.type === "Audio" && post.media_url && (
-        <AudioPlayerCard uri={post.media_url} />
+        <AudioPlayerCard uri={post.media_url} title={post.title} author={post.author} />
       )}
 
         <View style={styles.divider} />
@@ -178,7 +201,7 @@ export default function ID() {
         }}/>
 
         <FlatList
-          data={comments}
+          data={topLevelComments}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={renderMainPost}
@@ -186,17 +209,71 @@ export default function ID() {
           ListEmptyComponent={
             <Text style={{color: '#666', textAlign: 'center', marginTop: 20}}>Be the first to reply...</Text>
           }
-          renderItem={({item}) => (
-            <View style={styles.commentCard}>
-              <View style={styles.commentHeader}>
-                <Text style={styles.commentAuthor}>@{item.author}</Text>
+          renderItem={({item}) => {
+            const commentReplies = repliesByParent[item.id] || [];
+            const isExpanded = expandedComments[item.id];
+            
+            return (
+              <View style={styles.commentThread}>
+                <View style={styles.commentCard}>
+                  <View style={styles.commentHeader}>
+                    <View style={styles.commentAuthorRow}>
+                      <Text style={styles.commentAuthor}>@{item.author}</Text>
+                      <Text style={styles.timeText}>{getRelativeTime(item.created_at)}</Text>
+                    </View>
+                    {user === item.author && (
+                      <TouchableOpacity onPress={() => handleDeleteComment(item.id)}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={styles.commentText}>{item.content}</Text>
+                  
+                  <View style={styles.commentActions}>
+                    <TouchableOpacity onPress={() => setReplyingTo({id: item.id, author: item.author})}>
+                      <Text style={styles.actionText}>Reply</Text>
+                    </TouchableOpacity>
+                    {commentReplies.length > 0 && (
+                      <TouchableOpacity onPress={() => toggleReplies(item.id)}>
+                        <Text style={styles.actionText}>
+                          {isExpanded ? "Hide Replies" : `Show Replies (${commentReplies.length})`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+
+                {isExpanded && commentReplies.map(reply => (
+                  <View key={reply.id} style={styles.replyCard}>
+                    <View style={styles.commentHeader}>
+                      <View style={styles.commentAuthorRow}>
+                        <Text style={styles.commentAuthor}>@{reply.author}</Text>
+                        <Text style={styles.timeText}>{getRelativeTime(reply.created_at)}</Text>
+                      </View>
+                      {user === reply.author && (
+                        <TouchableOpacity onPress={() => handleDeleteComment(reply.id)}>
+                          <Text style={styles.deleteText}>Delete</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <Text style={styles.commentText}>{reply.content}</Text>
+                  </View>
+                ))}
               </View>
-              <Text style={styles.commentText}>{item.content}</Text>
-            </View>
-          )}
+            );
+          }}
         />
 
-        <View style={styles.replyContainer}>
+        <View style={styles.replyContainerWrapper}>
+          {replyingTo && (
+            <View style={styles.replyingToBanner}>
+              <Text style={styles.replyingToText}>Replying to @{replyingTo.author}</Text>
+              <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                <Text style={styles.cancelReplyText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={styles.replyContainer}>
           <TextInput
             style={styles.replyInput}
             placeholder="Write a reply..."
@@ -217,6 +294,7 @@ export default function ID() {
                <Text style={styles.sendButtonText}>↑</Text>
             )}
           </TouchableOpacity>
+        </View>
         </View>
 
       </KeyboardAvoidingView>
@@ -274,24 +352,71 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 15,
     },
+    commentThread: {
+        marginBottom: 20,
+    },
     commentCard: {
         paddingHorizontal: 20,
-        marginBottom: 20,
+    },
+    replyCard: {
+        paddingRight: 20,
+        paddingLeft: 40,
+        paddingTop: 15,
+        marginTop: 5,
+        borderLeftWidth: 1,
+        borderLeftColor: '#333',
+        marginLeft: 20,
     },
     commentHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 5,
     },
+    commentAuthorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     commentAuthor: {
         color: '#a1a1a1',
         fontWeight: 'bold',
         fontSize: 14,
+        marginRight: 8,
     },
     commentText: {
         color: '#ccc',
         fontSize: 15,
         lineHeight: 22,
+    },
+    commentActions: {
+        flexDirection: 'row',
+        marginTop: 8,
+    },
+    actionText: {
+        color: '#6366f1',
+        fontWeight: '600',
+        fontSize: 13,
+        marginRight: 15,
+    },
+    replyContainerWrapper: {
+        backgroundColor: '#0a0a0a',
+        borderTopWidth: 1,
+        borderTopColor: '#1a1a1a',
+    },
+    replyingToBanner: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        paddingBottom: 4,
+    },
+    replyingToText: {
+        color: '#a1a1a1',
+        fontSize: 13,
+    },
+    cancelReplyText: {
+        color: '#ff4444',
+        fontSize: 13,
+        fontWeight: 'bold',
     },
     replyContainer: {
         flexDirection: 'row',
@@ -333,55 +458,14 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: -2,
     },
-    playerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    width: '100%',
-    padding: 15,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#333',
-    marginBottom: 15,
-  },
-  playButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 25,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  playIcon: {
-    fontSize: 18,
-    color: '#000',
-  },
-  waveformContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  progressBarBackground: {
-    height: 6,
-    backgroundColor: '#333',
-    borderRadius: 3,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 3,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  timeText: {
-    color: '#888',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+    deleteText: {
+        color: '#ff4444',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    timeText: {
+        color: '#888',
+        fontSize: 12,
+        fontWeight: '600',
+    },
 });
