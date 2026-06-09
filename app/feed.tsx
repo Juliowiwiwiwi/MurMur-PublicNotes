@@ -188,10 +188,10 @@ export default function Feed() {
           </View>
           <Text style={styles.cardContent}>{item.content}</Text>
 
-          {item.type==="Image" && (
+          {item.type==="Image" && item.media_url && (
             <View style={styles.noteImageContainer}>
               <Image
-              source={{uri:item.imageUrl}}
+              source={{uri:item.media_url}}
               style={styles.noteImage}
               resizeMode="cover"/>
             </View>
