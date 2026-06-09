@@ -41,7 +41,7 @@ export default function Index() {
               console.log("Login Pressed");
             }}
             activeOpacity={0.5}>
-              <Text style={styles.buttonText}>Let's get started! →</Text>
+              <Text style={styles.buttonText}>Let&apos;s get started! →</Text>
             </TouchableOpacity>
           </View>
         </View>

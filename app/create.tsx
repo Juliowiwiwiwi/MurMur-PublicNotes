@@ -1,5 +1,5 @@
 import { decode } from 'base64-arraybuffer';
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -11,65 +11,14 @@ import { supabase } from '../supabase';
 
 
 
-    const AudioPlayerCard=({uri ,onDelete}:{uri : string, onDelete:()=>void}) => {
-        const player=useAudioPlayer(uri);
-        const status=useAudioPlayerStatus(player);
-        const togglePlay=()=>{
-            if (status.playing){
-                player.pause();
-            }else{
-                if(status.currentTime>=status.duration && status.duration>0){
-                    player.seekTo(0);
-                }
-                player.play();
-            }
-        };
+import { AudioPlayerCard } from './components/AudioPlayerCard';
 
-        const formatTime = (seconds: number) => {
-            const m = Math.floor(seconds / 60);
-            const s = Math.floor(seconds % 60);
-            return `${m}:${s < 10 ? '0' : ''}${s}`;
-        };
-
-        const progressPercent = status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0;
-
-
-        return(
-            <View style={styles.playerCard}>
-                <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
-                    <Text style={styles.playIcon}>{player.playing? "⏸" : "▶️"}</Text>
-                </TouchableOpacity>
-                <View style={styles.waveformContainer}>
-                    <View style={styles.progressBarBackground}>
-                        <View style={[styles.progressBarFill,{width:`${progressPercent}%`}]} />
-
-                    </View>
-                    <View style={styles.timeRow}>
-                        <Text style={styles.timeText}>{formatTime(status.currentTime)}</Text>
-                        <Text style={styles.timeText}>
-                            {status.duration>0 ? formatTime(status.duration):"..."}
-                        </Text>
-                    </View>
-                </View>
-                <TouchableOpacity style={styles.trashButton} onPress={onDelete}>
-                    <Text style={styles.trashIcon}>🗑️</Text>
-                </TouchableOpacity>
-            </View>
-        )
-    }
-
-
-
-
-
-
-
-    export default function Create() {
+export default function Create() {
 
 
         const router=useRouter();
 
-        const { type }=useLocalSearchParams();
+        const { type, user }=useLocalSearchParams();
 
         const[title,setTitle]=useState('');
         const[note,setNote]=useState('');
@@ -180,7 +129,7 @@ import { supabase } from '../supabase';
                         content:note.trim(),
                         type:type,
                         media_url:mediaUrl,
-                        author:'devanarayan'
+                        author: user as string
                     }
                 ]);
             
@@ -408,63 +357,4 @@ import { supabase } from '../supabase';
             textAlign: 'center',
             paddingHorizontal: 10,
         },
-        playerCard: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#1a1a1a',
-            width: '100%',
-            padding: 15,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: '#333',
-        },
-        playButton: {
-            width: 45,
-            height: 45,
-            borderRadius: 25,
-            backgroundColor: '#ffffff',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginRight: 15,
-        },
-        playIcon: {
-            fontSize: 18,
-            color: '#fff',
-            marginLeft: 2, 
-        },
-        waveformContainer: {
-            flex: 1,
-            justifyContent: 'center',
-            paddingHorizontal: 10,
-        },
-        progressBarBackground: {
-            height: 6,
-            backgroundColor: '#333',
-            borderRadius: 3,
-            width: '100%',
-            overflow: 'hidden',
-        },
-        progressBarFill: {
-            height: '100%',
-            backgroundColor: '#ffffff', // Your indigo brand color
-            borderRadius: 3,
-        },
-        timeRow: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            marginTop: 6,
-        },
-        timeText: {
-            color: '#888',
-            fontSize: 12,
-            fontWeight: '600',
-        },
-        trashButton: {
-            padding: 10,
-            marginLeft: 10,
-        },
-        trashIcon: {
-            fontSize: 22,
-        },
-
-    });
+    });
