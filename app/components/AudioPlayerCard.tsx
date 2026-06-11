@@ -3,20 +3,9 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export const AudioPlayerCard = ({ uri, title, author, onDelete }: { uri: string, title?: string, author?: string, onDelete?: () => void }) => {
+export const AudioPlayerCard = ({ uri, title, author, avatarUrl, onDelete }: { uri: string, title?: string, author?: string, avatarUrl?: string | null, onDelete?: () => void }) => {
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (author) {
-      import('@/supabase').then(({ supabase }) => {
-        supabase.from('profiles').select('avatar_url').eq('username', author).single().then(({ data }) => {
-          if (data?.avatar_url) setAvatarUrl(data.avatar_url);
-        });
-      });
-    }
-  }, [author]);
 
   const togglePlay = () => {
     if (status.playing) {

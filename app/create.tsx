@@ -116,11 +116,16 @@ export default function Create() {
 
         try {
             let mediaUrl = null;
+            let uploadedFilename = null;
             if (selectedImage) {
                 mediaUrl = await uploadMedia(selectedImage, 'Image');
             } else if (audioUri) {
                 mediaUrl = await uploadMedia(audioUri, 'Audio');
             }
+            if (mediaUrl) {
+                uploadedFilename = mediaUrl.split('/').pop();
+            }
+
             const { error } = await supabase
                 .from('whispers')
                 .insert([
@@ -133,7 +138,13 @@ export default function Create() {
                     }
                 ]);
 
-            if (error) throw error;
+            if (error) {
+                if (uploadedFilename) {
+                    console.log(`Insertion failed. Cleaning up uploaded file: ${uploadedFilename}`);
+                    await supabase.storage.from('media').remove([uploadedFilename]);
+                }
+                throw error;
+            }
             console.log("Upload Successful");
             setIsUploading(false);
             router.back();

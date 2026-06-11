@@ -105,8 +105,28 @@ export default function Feed() {
 
     if (error) {
       console.error("Error fetching notes:", error);
+      setNotes([]);
     } else {
-      setNotes(data || []);
+      if (data && data.length > 0) {
+        const uniqueAuthors = [...new Set(data.map((item: any) => item.author))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .in('username', uniqueAuthors);
+          
+        const avatarMap = profilesData?.reduce((acc: any, p: any) => {
+          acc[p.username] = p.avatar_url;
+          return acc;
+        }, {}) || {};
+
+        const enrichedData = data.map((item: any) => ({
+          ...item,
+          profiles: { avatar_url: avatarMap[item.author] }
+        }));
+        setNotes(enrichedData);
+      } else {
+        setNotes([]);
+      }
     }
 
     if (user) {
@@ -255,7 +275,7 @@ export default function Feed() {
               </View>
             )}
             {item.type === "Audio" && item.media_url && (
-              <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} />
+              <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} avatarUrl={item.profiles?.avatar_url} />
             )}
           </TouchableOpacity>
         )} />

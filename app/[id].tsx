@@ -31,6 +31,17 @@ export default function ID() {
         .single();
 
       if (postError) throw postError;
+      
+      if (postData) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('username', postData.author)
+          .single();
+        if (profileData) {
+          postData.profiles = { avatar_url: profileData.avatar_url };
+        }
+      }
       setPost(postData);
 
       const { data: commentsData, error: commentsError } = await supabase
@@ -167,7 +178,7 @@ export default function ID() {
 
         {/* teh audio whisper */}
         {post.type === "Audio" && post.media_url && (
-          <AudioPlayerCard uri={post.media_url} title={post.title} author={post.author} />
+          <AudioPlayerCard uri={post.media_url} title={post.title} author={post.author} avatarUrl={post.profiles?.avatar_url} />
         )}
 
         <View style={styles.divider} />

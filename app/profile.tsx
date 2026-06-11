@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from 'base64-arraybuffer';
 import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -82,18 +82,21 @@ export default function Profile() {
     }
   }, []);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      const storedUser = await AsyncStorage.getItem('username');
-      if (storedUser) {
-        setUsername(storedUser);
-        fetchProfileData(storedUser);
-      } else {
-        router.replace('/');
-      }
-    };
-    loadUser();
-  }, [fetchProfileData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadUser = async () => {
+        const storedUser = await AsyncStorage.getItem('username');
+        if (storedUser) {
+          setUsername(storedUser);
+          fetchProfileData(storedUser);
+        } else {
+          router.replace('/');
+        }
+      };
+      loadUser();
+    }, [fetchProfileData])
+  );
 
   const handleLogout = async () => {
     try {
@@ -174,7 +177,7 @@ export default function Profile() {
         </View>
       )}
       {item.type === "Audio" && item.media_url && (
-        <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} />
+        <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} avatarUrl={profileData?.avatar_url} />
       )}
     </View>
   );
@@ -189,8 +192,8 @@ export default function Profile() {
 
   const whispererClass = getWhispererClass(stats.whispers + stats.replies);
 
-  return (
-    <SafeAreaView style={styles.container}>
+  const renderHeader = () => (
+    <>
       <Stack.Screen options={{
         headerTitle: "Profile",
         headerStyle: { backgroundColor: '#000' },
@@ -244,20 +247,23 @@ export default function Profile() {
         </View>
       </View>
 
-      <View style={styles.feedSection}>
-        <Text style={styles.feedTitle}>Your Whispers</Text>
-        <FlatList
-          data={userWhispers}
-          keyExtractor={item => item.id.toString()}
-          renderItem={renderWhisper}
-          contentContainerStyle={{ paddingBottom: 50 }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>You haven't whispered anything yet.</Text>
-          }
-        />
-      </View>
+      <Text style={styles.feedTitle}>Your Whispers</Text>
+    </>
+  );
 
+  return (
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={userWhispers}
+        keyExtractor={item => item.id.toString()}
+        renderItem={renderWhisper}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: 20 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>You haven't whispered anything yet.</Text>
+        }
+      />
     </SafeAreaView>
   );
 }
