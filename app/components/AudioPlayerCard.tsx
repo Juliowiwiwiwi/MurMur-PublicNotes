@@ -1,11 +1,22 @@
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import React, { useEffect, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export const AudioPlayerCard = ({ uri, title, author, onDelete }: { uri: string, title?: string, author?: string, onDelete?: () => void }) => {
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (author) {
+      import('@/supabase').then(({ supabase }) => {
+        supabase.from('profiles').select('avatar_url').eq('username', author).single().then(({ data }) => {
+          if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+        });
+      });
+    }
+  }, [author]);
 
   const togglePlay = () => {
     if (status.playing) {
@@ -28,8 +39,16 @@ export const AudioPlayerCard = ({ uri, title, author, onDelete }: { uri: string,
 
   return (
     <View style={styles.playerCard}>
-      <View style={styles.avatarPlaceholder} />
-      
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatarPlaceholder} />
+      ) : (
+        <View style={[styles.avatarPlaceholder, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000' }}>
+            {author ? author.charAt(0).toUpperCase() : '?'}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.playerContent}>
         {(title || author) && (
           <View style={styles.headerInfo}>
@@ -46,7 +65,7 @@ export const AudioPlayerCard = ({ uri, title, author, onDelete }: { uri: string,
           <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
             <Ionicons name={status.playing ? "pause" : "play"} size={18} color="#000" />
           </TouchableOpacity>
-          
+
           <Text style={styles.timeText}>
             {formatTime(status.currentTime)} / {status.duration > 0 ? formatTime(status.duration) : "--:--"}
           </Text>

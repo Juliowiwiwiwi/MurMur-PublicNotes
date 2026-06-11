@@ -67,7 +67,7 @@ export default function Feed() {
       filtered = filtered.filter(note => note.type === activeCategory);
     }
 
-    // Normalize note created_at to local YYYY-MM-DD
+    // normalize note created_at to local YYYY-MM-DD
     filtered = filtered.filter(note => {
       const d = new Date(note.created_at);
       const year = d.getFullYear();
@@ -94,6 +94,7 @@ export default function Feed() {
 
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
   const fetchNotes = async () => {
     setLoading(true);
@@ -107,6 +108,12 @@ export default function Feed() {
     } else {
       setNotes(data || []);
     }
+
+    if (user) {
+      const { data: profileData } = await supabase.from('profiles').select('avatar_url').eq('username', user).single();
+      if (profileData?.avatar_url) setUserAvatar(profileData.avatar_url);
+    }
+
     setLoading(false);
   };
 
@@ -128,8 +135,23 @@ export default function Feed() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ headerTitle: `${greeting}, ${user}` }} />
-      {/*This will be the permanent Header. Trigger and the calendar will be wrapped in modal */}
+      <Stack.Screen
+        options={{
+          headerTitle: `${greeting}, ${user}`,
+          headerRight: () => (
+            <TouchableOpacity onPress={() => router.push('/profile')} style={{ marginRight: 15 }}>
+              {userAvatar ? (
+                <Image source={{ uri: userAvatar }} style={{ width: 35, height: 35, borderRadius: 17.5, borderWidth: 1, borderColor: '#333' }} />
+              ) : (
+                <View style={{ width: 35, height: 35, borderRadius: 17.5, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#333' }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>{(user as string)?.charAt(0).toUpperCase() || '?'}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )
+        }}
+      />
+      {/*This will be the permanent Header.,trigger(rhymes with a funny word) and the calendar will be wrapped in modal */}
       <View style={styles.headerWrapper}>
         <TouchableOpacity onPress={toggleHeader} style={styles.closedContainer}>
           <Text style={styles.todayText}>
@@ -286,7 +308,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#1a1a1a',
   },
-  // CLOSED STATE
   closedContainer: {
     paddingVertical: 10,
   },
@@ -300,7 +321,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  // OPEN STATE
   openContainer: {
     paddingBottom: 10,
   },
