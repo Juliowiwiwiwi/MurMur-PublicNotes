@@ -1,5 +1,5 @@
-import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Image, LayoutAnimation, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from '../supabase';
@@ -62,22 +62,7 @@ export default function Feed() {
   const categories = ["All", "Text", "Image", "Audio"];
 
   const getFilteredNotes = () => {
-    let filtered = notes;
-    if (activeCategory !== "All") {
-      filtered = filtered.filter(note => note.type === activeCategory);
-    }
-
-    // normalize note created_at to local YYYY-MM-DD
-    filtered = filtered.filter(note => {
-      const d = new Date(note.created_at);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const yyyymmdd = `${year}-${month}-${day}`;
-      return yyyymmdd === selectedDate;
-    });
-
-    return filtered;
+    return notes;
   };
 
 
@@ -98,38 +83,34 @@ export default function Feed() {
 
   const fetchNotes = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // Calculate start and end of the selected date for server-side filtering
+    const [year, month, day] = selectedDate.split('-');
+    const startOfDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    let query = supabase
       .from('whispers')
-      .select('*')
+      .select('*, profiles(avatar_url)')
+      .gte('created_at', startOfDay.toISOString())
+      .lt('created_at', endOfDay.toISOString())
       .order('created_at', { ascending: false });
+
+    if (activeCategory !== "All") {
+      query = query.eq('type', activeCategory);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching notes:", error);
       setNotes([]);
     } else {
-      if (data && data.length > 0) {
-        const uniqueAuthors = [...new Set(data.map((item: any) => item.author))];
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('username, avatar_url')
-          .in('username', uniqueAuthors);
-          
-        const avatarMap = profilesData?.reduce((acc: any, p: any) => {
-          acc[p.username] = p.avatar_url;
-          return acc;
-        }, {}) || {};
-
-        const enrichedData = data.map((item: any) => ({
-          ...item,
-          profiles: { avatar_url: avatarMap[item.author] }
-        }));
-        setNotes(enrichedData);
-      } else {
-        setNotes([]);
-      }
+      setNotes(data || []);
     }
 
-    if (user) {
+    if (user && !userAvatar) {
       const { data: profileData } = await supabase.from('profiles').select('avatar_url').eq('username', user).single();
       if (profileData?.avatar_url) setUserAvatar(profileData.avatar_url);
     }
@@ -145,11 +126,9 @@ export default function Feed() {
     setRefreshing(false);
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchNotes();
-    }, [])
-  );
+  useEffect(() => {
+    fetchNotes();
+  }, [activeCategory, selectedDate]);
 
 
 

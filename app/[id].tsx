@@ -1,6 +1,6 @@
 import { supabase } from '@/supabase';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
@@ -26,22 +26,11 @@ export default function ID() {
     try {
       const { data: postData, error: postError } = await supabase
         .from('whispers')
-        .select('*')
+        .select('*, profiles(avatar_url)')
         .eq('id', id)
         .single();
 
       if (postError) throw postError;
-      
-      if (postData) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('username', postData.author)
-          .single();
-        if (profileData) {
-          postData.profiles = { avatar_url: profileData.avatar_url };
-        }
-      }
       setPost(postData);
 
       const { data: commentsData, error: commentsError } = await supabase
@@ -134,14 +123,17 @@ export default function ID() {
     }));
   };
 
-  const topLevelComments = comments.filter(c => !c.parent_comment_id);
-  const repliesByParent = comments.reduce((acc, comment) => {
-    if (comment.parent_comment_id) {
-      if (!acc[comment.parent_comment_id]) acc[comment.parent_comment_id] = [];
-      acc[comment.parent_comment_id].push(comment);
-    }
-    return acc;
-  }, {} as Record<string, any[]>);
+  const { topLevelComments, repliesByParent } = useMemo(() => {
+    const topLevel = comments.filter(c => !c.parent_comment_id);
+    const replies = comments.reduce((acc, comment) => {
+      if (comment.parent_comment_id) {
+        if (!acc[comment.parent_comment_id]) acc[comment.parent_comment_id] = [];
+        acc[comment.parent_comment_id].push(comment);
+      }
+      return acc;
+    }, {} as Record<string, any[]>);
+    return { topLevelComments: topLevel, repliesByParent: replies };
+  }, [comments]);
 
   const renderMainPost = () => {
     if (!post) return null;
