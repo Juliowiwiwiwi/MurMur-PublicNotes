@@ -56,11 +56,19 @@ export default function ID() {
     if (!id || replyText.trim() === '' || isSending) return;
     setIsSending(true);
     try {
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+          Alert.alert("Authentication Error", "You must be logged in to reply.");
+          setIsSending(false);
+          return;
+      }
+
       const { error } = await supabase
         .from('comments')
         .insert([{
           whisper_id: id,
-          author: user as string,
+          author: currentUser.user_metadata.username,
+          user_id: currentUser.id,
           content: replyText.trim(),
           parent_comment_id: replyingTo ? replyingTo.id : null,
         }]);
@@ -85,6 +93,12 @@ export default function ID() {
         text: "Delete", style: "destructive", onPress: async () => {
           try {
             setIsLoading(true);
+            if (post.media_url) {
+              const fileName = post.media_url.split('/').pop();
+              if (fileName) {
+                await supabase.storage.from('media').remove([fileName]);
+              }
+            }
             const { error } = await supabase.from('whispers').delete().eq('id', id);
             if (error) throw error;
             router.back();

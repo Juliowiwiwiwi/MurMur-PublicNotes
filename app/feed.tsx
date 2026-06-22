@@ -80,9 +80,12 @@ export default function Feed() {
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  const fetchNotes = async () => {
-    setLoading(true);
+  const fetchNotes = async (pageNum = 0) => {
+    if (pageNum === 0) setLoading(true);
+    else setIsFetchingMore(true);
     
     // Calculate start and end of the selected date for server-side filtering
     const [year, month, day] = selectedDate.split('-');
@@ -95,7 +98,8 @@ export default function Feed() {
       .select('*, profiles(avatar_url)')
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(pageNum * 10, (pageNum + 1) * 10 - 1);
 
     if (activeCategory !== "All") {
       query = query.eq('type', activeCategory);
@@ -105,9 +109,13 @@ export default function Feed() {
 
     if (error) {
       console.error("Error fetching notes:", error);
-      setNotes([]);
+      if (pageNum === 0) setNotes([]);
     } else {
-      setNotes(data || []);
+      if (pageNum === 0) {
+        setNotes(data || []);
+      } else {
+        setNotes(prev => [...prev, ...(data || [])]);
+      }
     }
 
     if (user && !userAvatar) {
@@ -115,20 +123,29 @@ export default function Feed() {
       if (profileData?.avatar_url) setUserAvatar(profileData.avatar_url);
     }
 
-    setLoading(false);
+    if (pageNum === 0) setLoading(false);
+    else setIsFetchingMore(false);
   };
 
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchNotes();
+    setPage(0);
+    await fetchNotes(0);
     setRefreshing(false);
   };
 
   useEffect(() => {
-    fetchNotes();
+    setPage(0);
+    fetchNotes(0);
   }, [activeCategory, selectedDate]);
+
+  useEffect(() => {
+    if (page > 0) {
+      fetchNotes(page);
+    }
+  }, [page]);
 
 
 
@@ -228,6 +245,12 @@ export default function Feed() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
         }
+        onEndReached={() => {
+          if (!loading && !isFetchingMore && notes.length >= (page + 1) * 10) {
+            setPage(prev => prev + 1);
+          }
+        }}
+        onEndReachedThreshold={0.5}
         contentContainerStyle={{ paddingBottom: 100, paddingTop: 10, }}
         ListEmptyComponent={
           loading ? (

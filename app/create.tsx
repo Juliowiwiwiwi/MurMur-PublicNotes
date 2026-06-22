@@ -65,7 +65,7 @@ export default function Create() {
                 await audioRecorder.prepareToRecordAsync();
                 audioRecorder.record();
             } else {
-                console.log("Microphone no perms");
+                Alert.alert("Microphone Required", "MurMur needs microphone access to record voice notes. Please enable it in your device settings.");
             }
         }
     };
@@ -126,6 +126,13 @@ export default function Create() {
                 uploadedFilename = mediaUrl.split('/').pop();
             }
 
+            const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+            if (authError || !currentUser) {
+                Alert.alert("Authentication Error", "You must be logged in to post.");
+                setIsUploading(false);
+                return;
+            }
+
             const { error } = await supabase
                 .from('whispers')
                 .insert([
@@ -134,7 +141,8 @@ export default function Create() {
                         content: note.trim(),
                         type: type,
                         media_url: mediaUrl,
-                        author: user as string
+                        author: currentUser.user_metadata.username,
+                        user_id: currentUser.id
                     }
                 ]);
 

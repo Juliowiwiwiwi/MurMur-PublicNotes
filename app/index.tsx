@@ -1,67 +1,123 @@
 import { supabase } from '@/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Index() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleLogin = async () => {
-    const trimmedUsername = username.trim();
-    if (trimmedUsername.length > 2) {
-      try {
-        await AsyncStorage.setItem('username', trimmedUsername);
-
-        // auto prof
-        const { error } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('username', trimmedUsername)
-          .single();
-
-        if (error && error.code === 'PGRST116') {
-          // no profile:(  ? mae one
-          await supabase.from('profiles').insert([{ username: trimmedUsername }]);
-        }
-      } catch (e) {
-        console.error('Failed to save username or create profile.', e);
-      }
-      router.replace({
-        pathname: "/feed",
-        params: { user: trimmedUsername }
-      });
-    } else {
-      alert("Enter a username (at least 3 characters)")
+  const handleAuth = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter an email and password.");
+      return;
     }
+
+    setLoading(true);
+
+    if (isSignUp) {
+      const trimmedUsername = username.trim();
+      if (trimmedUsername.length < 3) {
+        Alert.alert("Error", "Enter a username (at least 3 characters)");
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username: trimmedUsername },
+        },
+      });
+
+      if (error) {
+        if (error.message.includes("already registered")) {
+          Alert.alert("Oops", "That email is already in use!");
+        } else {
+          Alert.alert("Signup Failed", error.message);
+        }
+      } else {
+        Alert.alert("Success", "Account created successfully!");
+        setIsSignUp(false); // Switch to login
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        Alert.alert("Login Failed", error.message);
+      }
+    }
+    setLoading(false);
   }
+
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
         <View style={styles.inner}>
           <View>
-            <Text style={styles.logo}>
-              MurMur
-            </Text>
-            <Text style={styles.subtitle}>Thoughts that linger.{"\n"}Notes that stay.{"\n"}Something new with every swipe away. </Text>
+            <Text style={styles.logo}>MurMur</Text>
+            <Text style={styles.subtitle}>Thoughts that linger.{"\n"}Notes that stay.{"\n"}Something new with every swipe away.</Text>
           </View>
           <View style={styles.inputContainer}>
+            {isSignUp && (
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                placeholderTextColor={'#999'}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+              />
+            )}
             <TextInput
               style={styles.input}
-              placeholder="Enter a username"
+              placeholder="Email"
               placeholderTextColor={'#999'}
-              value={username}
-              onChangeText={setUsername}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
             />
-            <TouchableOpacity style={styles.button} onPress={() => {
-              handleLogin();
-              console.log("Login Pressed");
-            }}
-              activeOpacity={0.5}>
-              <Text style={styles.buttonText}>Let&apos;s get started! →</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor={'#999'}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleAuth}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>{isSignUp ? "Create Account" : "Sign In"} →</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => setIsSignUp(!isSignUp)}
+              disabled={loading}
+            >
+              <Text style={styles.toggleButtonText}>
+                {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -84,7 +140,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     fontSize: 48,
-    fontWeight: 900,
+    fontWeight: '900',
     paddingVertical: 15,
     marginBottom: 12,
     color: "white",
@@ -104,13 +160,12 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 20,
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 15,
     borderWidth: 1,
     borderColor: '#333'
-
   },
   button: {
-    backgroundColor: '#131441',
+    backgroundColor: '#ffffffff',
     padding: 15,
     alignItems: "center",
     borderRadius: 20,
@@ -118,11 +173,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
-    elevation: 5, //androidil shadownokke paranjal manasilavila so elevation
+    elevation: 5,
+    marginTop: 10,
+    height: 55,
+    justifyContent: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
-    color: "#ffffff",
+    color: "#000000ff",
     fontSize: 18,
     fontWeight: 'bold',
   },
-})
+  toggleButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  toggleButtonText: {
+    color: '#a1a1a1',
+    fontSize: 16,
+  }
+});

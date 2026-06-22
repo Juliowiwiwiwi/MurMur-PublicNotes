@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/supabase';
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -8,22 +8,24 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkLogin = async () => {
-      try {
-        const username = await AsyncStorage.getItem('username');
-        if (username) {
-          // A short timeout so navigation smooth akan
-          setTimeout(() => {
-            router.replace({ pathname: "/feed", params: { user: username } });
-          }, 0);
-        }
-      } catch (e) {
-        console.error('Failed to check login status.', e);
-      } finally {
-        setIsReady(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setTimeout(() => {
+          router.replace({ pathname: "/feed", params: { user: session.user.user_metadata.username } });
+        }, 0);
       }
-    };
-    checkLogin();
+      setIsReady(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        router.replace({ pathname: "/feed", params: { user: session.user.user_metadata.username } });
+      } else {
+        router.replace("/");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   if (!isReady) {

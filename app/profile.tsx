@@ -86,10 +86,11 @@ export default function Profile() {
   useFocusEffect(
     useCallback(() => {
       const loadUser = async () => {
-        const storedUser = await AsyncStorage.getItem('username');
-        if (storedUser) {
-          setUsername(storedUser);
-          fetchProfileData(storedUser);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          const uName = session.user.user_metadata.username;
+          setUsername(uName);
+          fetchProfileData(uName);
         } else {
           router.replace('/');
         }
@@ -100,8 +101,8 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('username');
-      router.replace('/');
+      await supabase.auth.signOut();
+      // The _layout.tsx listener will automatically route back to '/'
     } catch (e) {
       console.error('Failed to logout', e);
     }
@@ -122,6 +123,9 @@ export default function Profile() {
   const uploadAvatar = async (uri: string) => {
     setIsUploading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
       const ext = 'jpg';
       const filename = `avatar_${username}_${Date.now()}.${ext}`;
 
@@ -145,7 +149,7 @@ export default function Profile() {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
-        .eq('username', username);
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
 
