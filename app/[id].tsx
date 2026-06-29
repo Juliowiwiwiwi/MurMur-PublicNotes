@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
+import { LikeButton } from './components/LikeButton';
 import { getRelativeTime } from './utils/time';
 
 
@@ -20,13 +21,20 @@ export default function ID() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
 
   const fetchWhisper = useCallback(async () => {
     if (!id) return;
     try {
       const { data: postData, error: postError } = await supabase
         .from('whispers')
-        .select('*, profiles(avatar_url)')
+        .select('*, profiles(avatar_url), likes(user_id)')
         .eq('id', id)
         .single();
 
@@ -182,9 +190,18 @@ export default function ID() {
           </View>
         )}
 
-        {/* teh audio whisper */}
         {post.type === "Audio" && post.media_url && (
           <AudioPlayerCard uri={post.media_url} title={post.title} author={post.author} avatarUrl={post.profiles?.avatar_url} />
+        )}
+
+        {currentUserId && post && (
+          <View style={styles.actionBar}>
+            <LikeButton 
+              whisperId={post.id}
+              initialLikeCount={post.likes?.length || 0}
+              initialIsLiked={post.likes?.some((like: any) => like.user_id === currentUserId) || false}
+            />
+          </View>
         )}
 
         <View style={styles.divider} />
@@ -368,10 +385,11 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: 250,
-    borderRadius: 15,
+    aspectRatio: 4/3,
+    borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 15,
+    backgroundColor: '#111',
   },
   postImage: {
     width: '100%',
@@ -381,6 +399,14 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#1a1a1a',
     marginVertical: 20,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 15,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#333',
   },
   commentsTitle: {
     color: '#fff',

@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, Image, LayoutAnimation, Modal, Platform, R
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from '../supabase';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
+import { LikeButton } from './components/LikeButton';
 import { getRelativeTime } from './utils/time';
 
 const getGreeting = () => {
@@ -81,6 +82,13 @@ export default function Feed() {
   const [page, setPage] = useState(0);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
 
   const fetchNotes = async (pageNum = 0) => {
     if (pageNum === 0) {
@@ -97,7 +105,7 @@ export default function Feed() {
 
     let query = supabase
       .from('whispers')
-      .select('*, profiles(avatar_url)')
+      .select('*, profiles(avatar_url), likes(user_id)')
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
       .order('created_at', { ascending: false })
@@ -283,6 +291,16 @@ export default function Feed() {
             )}
             {item.type === "Audio" && item.media_url && (
               <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} avatarUrl={item.profiles?.avatar_url} />
+            )}
+            
+            {currentUserId && (
+               <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginTop: 15, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#333' }}>
+                 <LikeButton 
+                   whisperId={item.id}
+                   initialLikeCount={item.likes?.length || 0}
+                   initialIsLiked={item.likes?.some((like: any) => like.user_id === currentUserId) || false}
+                 />
+               </View>
             )}
           </TouchableOpacity>
         )} />

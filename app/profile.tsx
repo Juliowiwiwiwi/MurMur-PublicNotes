@@ -7,6 +7,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
+import { LikeButton } from './components/LikeButton';
 import { getRelativeTime } from './utils/time';
 
 export default function Profile() {
@@ -18,6 +19,7 @@ export default function Profile() {
   const [stats, setStats] = useState({ whispers: 0, replies: 0, daysActive: 0 });
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
 
   const getWhispererClass = (totalActions: number) => {
@@ -64,7 +66,7 @@ export default function Profile() {
 
       const { data: whispers } = await supabase
         .from('whispers')
-        .select('*')
+        .select('*, likes(user_id)')
         .eq('author', user)
         .order('created_at', { ascending: false });
 
@@ -83,6 +85,7 @@ export default function Profile() {
       const loadUser = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
+          setCurrentUserId(session.user.id);
           const uName = session.user.user_metadata.username;
           setUsername(uName);
           fetchProfileData(uName);
@@ -163,7 +166,11 @@ export default function Profile() {
   };
 
   const renderWhisper = ({ item }: { item: any }) => (
-    <View style={styles.noteCard}>
+    <TouchableOpacity 
+      style={styles.noteCard} 
+      activeOpacity={0.9} 
+      onPress={() => router.push({ pathname: '/[id]', params: { id: item.id, user: item.author } })}
+    >
       <View style={styles.cardHeader}>
         <Text style={styles.authorText}>@{item.author}</Text>
         <Text style={styles.timeText}>{getRelativeTime(item.created_at)}</Text>
@@ -182,7 +189,17 @@ export default function Profile() {
       {item.type === "Audio" && item.media_url && (
         <AudioPlayerCard uri={item.media_url} title={item.title} author={item.author} avatarUrl={profileData?.avatar_url} />
       )}
-    </View>
+
+      {currentUserId && (
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginTop: 15, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#333' }}>
+          <LikeButton 
+            whisperId={item.id}
+            initialLikeCount={item.likes?.length || 0}
+            initialIsLiked={item.likes?.some((like: any) => like.user_id === currentUserId) || false}
+          />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 
   if (isLoading) {

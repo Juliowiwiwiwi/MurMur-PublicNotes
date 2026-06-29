@@ -141,8 +141,7 @@ export default function Create() {
                         content: note.trim(),
                         type: type,
                         media_url: mediaUrl,
-                        author: currentUser.user_metadata.username,
-                        user_id: currentUser.id
+                        author: currentUser.user_metadata.username
                     }
                 ]);
 
