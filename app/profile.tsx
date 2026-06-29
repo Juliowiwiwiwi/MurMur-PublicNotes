@@ -1,10 +1,9 @@
 import { supabase } from '@/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from 'base64-arraybuffer';
 import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useRouter, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
@@ -20,7 +19,7 @@ export default function Profile() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Whisperer classlogic
+
   const getWhispererClass = (totalActions: number) => {
     if (totalActions <= 5) return { rank: "The Phantom", color: "#666666" };
     if (totalActions <= 20) return { rank: "The Echo", color: "#08ded6" };
@@ -30,7 +29,7 @@ export default function Profile() {
 
   const fetchProfileData = useCallback(async (user: string) => {
     try {
-      //prof
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -39,19 +38,16 @@ export default function Profile() {
 
       setProfileData(profile);
 
-      //whispCount
       const { count: whispersCount } = await supabase
         .from('whispers')
         .select('*', { count: 'exact', head: true })
         .eq('author', user);
 
-      //ReplCount
       const { count: repliesCount } = await supabase
         .from('comments')
         .select('*', { count: 'exact', head: true })
         .eq('author', user);
 
-      // DaysCaitve
       let daysActive = 0;
       if (profile?.created_at) {
         const createdDate = new Date(profile.created_at);
@@ -66,7 +62,6 @@ export default function Profile() {
         daysActive: daysActive
       });
 
-      //UsrWhisprs
       const { data: whispers } = await supabase
         .from('whispers')
         .select('*')
@@ -102,7 +97,6 @@ export default function Profile() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      // The _layout.tsx listener will automatically route back to '/'
     } catch (e) {
       console.error('Failed to logout', e);
     }
@@ -145,7 +139,6 @@ export default function Profile() {
         .from('media')
         .getPublicUrl(filename);
 
-      //up prof tb;e
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
@@ -153,7 +146,13 @@ export default function Profile() {
 
       if (updateError) throw updateError;
 
-      //rfrsh
+      if (profileData?.avatar_url) {
+        const oldFileName = profileData.avatar_url.split('/').pop();
+        if (oldFileName) {
+          await supabase.storage.from('media').remove([oldFileName]);
+        }
+      }
+
       fetchProfileData(username);
     } catch (e) {
       console.error("Avatar upload failed: ", e);

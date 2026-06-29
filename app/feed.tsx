@@ -6,7 +6,6 @@ import { supabase } from '../supabase';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
 import { getRelativeTime } from './utils/time';
 
-//greeting for header
 const getGreeting = () => {
   const hr = new Date().getHours();
   if (hr < 12) return "Good Morning";
@@ -24,7 +23,6 @@ export default function Feed() {
 
   const [isExpanded, setExpanded] = useState(false);
 
-  //Dates setting
   const dates = useMemo(() => {
     const _dates = [];
     for (let i = 0; i < 14; i++) {
@@ -82,12 +80,16 @@ export default function Feed() {
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const fetchNotes = async (pageNum = 0) => {
-    if (pageNum === 0) setLoading(true);
-    else setIsFetchingMore(true);
-    
-    // Calculate start and end of the selected date for server-side filtering
+    if (pageNum === 0) {
+      setLoading(true);
+      setHasMore(true);
+    } else {
+      setIsFetchingMore(true);
+    }
+
     const [year, month, day] = selectedDate.split('-');
     const startOfDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     const endOfDay = new Date(startOfDay);
@@ -115,6 +117,9 @@ export default function Feed() {
         setNotes(data || []);
       } else {
         setNotes(prev => [...prev, ...(data || [])]);
+      }
+      if (data && data.length < 10) {
+        setHasMore(false);
       }
     }
 
@@ -246,7 +251,7 @@ export default function Feed() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
         }
         onEndReached={() => {
-          if (!loading && !isFetchingMore && notes.length >= (page + 1) * 10) {
+          if (!loading && !isFetchingMore && hasMore) {
             setPage(prev => prev + 1);
           }
         }}
