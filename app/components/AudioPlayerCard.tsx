@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from "expo-image";
 
 export const AudioPlayerCard = ({ uri, title, author, avatarUrl, onDelete }: { uri: string, title?: string, author?: string, avatarUrl?: string | null, onDelete?: () => void }) => {
   const player = useAudioPlayer(uri);

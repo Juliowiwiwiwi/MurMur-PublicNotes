@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Image, LayoutAnimation, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import { ActivityIndicator, FlatList, LayoutAnimation, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from '../supabase';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
@@ -83,12 +84,27 @@ export default function Feed() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUserId(data.user.id);
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+        fetchBlockedUsers(data.user.id);
+      }
     });
   }, []);
+
+  const fetchBlockedUsers = async (userId: string) => {
+    const { data: blockedUsersData } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', userId);
+    if (blockedUsersData && blockedUsersData.length > 0) {
+      const blockedIds = blockedUsersData.map(row => row.blocked_id);
+      const { data: profilesData } = await supabase.from('profiles').select('username').in('id', blockedIds);
+      if (profilesData) {
+        setBlockedUsers(profilesData.map(p => p.username));
+      }
+    }
+  };
 
   const fetchNotes = async (pageNum = 0) => {
     if (pageNum === 0) {
@@ -113,6 +129,10 @@ export default function Feed() {
 
     if (activeCategory !== "All") {
       query = query.eq('type', activeCategory);
+    }
+
+    if (blockedUsers.length > 0) {
+      query = query.not('author', 'in', `(${blockedUsers.map(u => `"${u}"`).join(',')})`);
     }
 
     const { data, error } = await query;
@@ -152,7 +172,7 @@ export default function Feed() {
   useEffect(() => {
     setPage(0);
     fetchNotes(0);
-  }, [activeCategory, selectedDate]);
+  }, [activeCategory, selectedDate, blockedUsers]);
 
   useEffect(() => {
     if (page > 0) {
@@ -170,7 +190,7 @@ export default function Feed() {
           headerRight: () => (
             <TouchableOpacity onPress={() => router.push('/profile')} style={{ marginRight: 15 }}>
               {userAvatar ? (
-                <Image source={{ uri: userAvatar }} style={{ width: 35, height: 35, borderRadius: 17.5, borderWidth: 1, borderColor: '#333' }} />
+                <Image source={{ uri: userAvatar }} style={{ width: 35, height: 35, borderRadius: 17.5, borderWidth: 1, borderColor: '#333' }} contentFit="cover" />
               ) : (
                 <View style={{ width: 35, height: 35, borderRadius: 17.5, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#333' }}>
                   <Text style={{ color: '#fff', fontWeight: 'bold' }}>{(user as string)?.charAt(0).toUpperCase() || '?'}</Text>
@@ -275,7 +295,9 @@ export default function Feed() {
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.noteCard} activeOpacity={0.9} onPress={() => router.push({ pathname: '/[id]', params: { id: item.id, user } })}>
             <View style={styles.cardHeader}>
-              <Text style={styles.authorText}>@{item.author}</Text>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { viewUser: item.author } })}>
+                <Text style={styles.authorText}>@{item.author}</Text>
+              </TouchableOpacity>
               <Text style={styles.timeText}>{getRelativeTime(item.created_at)}</Text>
             </View>
             {item.type !== "Audio" && item.title ? <Text style={styles.cardTitle}>{item.title}</Text> : null}
@@ -286,7 +308,7 @@ export default function Feed() {
                 <Image
                   source={{ uri: item.media_url }}
                   style={styles.noteImage}
-                  resizeMode="cover" />
+                  contentFit="cover" />
               </View>
             )}
             {item.type === "Audio" && item.media_url && (

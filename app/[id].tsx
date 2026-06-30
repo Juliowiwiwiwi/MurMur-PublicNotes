@@ -1,7 +1,8 @@
 import { supabase } from '@/supabase';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
 import { LikeButton } from './components/LikeButton';
@@ -162,7 +163,9 @@ export default function ID() {
     return (
       <View style={styles.mainPostContainer}>
         <View style={styles.postHeader}>
-          <Text style={styles.authorText}>@{post.author}</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { viewUser: post.author } })}>
+            <Text style={styles.authorText}>@{post.author}</Text>
+          </TouchableOpacity>
           {user === post.author && (
             <TouchableOpacity onPress={handleDeletePost}>
               <Text style={styles.deleteText}>Delete</Text>
@@ -184,7 +187,7 @@ export default function ID() {
               <Image
                 source={{ uri: post.media_url }}
                 style={styles.postImage}
-                resizeMode='cover'
+                contentFit='cover'
               />
             </TouchableOpacity>
           </View>
@@ -258,7 +261,9 @@ export default function ID() {
                 <View style={styles.commentCard}>
                   <View style={styles.commentHeader}>
                     <View style={styles.commentAuthorRow}>
-                      <Text style={styles.commentAuthor}>@{item.author}</Text>
+                      <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { viewUser: item.author } })}>
+                        <Text style={styles.commentAuthor}>@{item.author}</Text>
+                      </TouchableOpacity>
                       <Text style={styles.timeText}>{getRelativeTime(item.created_at)}</Text>
                     </View>
                     {user === item.author && (
@@ -287,7 +292,9 @@ export default function ID() {
                   <View key={reply.id} style={styles.replyCard}>
                     <View style={styles.commentHeader}>
                       <View style={styles.commentAuthorRow}>
-                        <Text style={styles.commentAuthor}>@{reply.author}</Text>
+                        <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { viewUser: reply.author } })}>
+                          <Text style={styles.commentAuthor}>@{reply.author}</Text>
+                        </TouchableOpacity>
                         <Text style={styles.timeText}>{getRelativeTime(reply.created_at)}</Text>
                       </View>
                       {user === reply.author && (
@@ -345,7 +352,7 @@ export default function ID() {
             <Image
               source={{ uri: post.media_url }}
               style={{ width: '100%', height: '100%' }}
-              resizeMode="contain"
+              contentFit="contain"
             />
           )}
         </TouchableOpacity>

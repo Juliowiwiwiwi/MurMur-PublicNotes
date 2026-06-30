@@ -2,9 +2,10 @@ import { supabase } from '@/supabase';
 import { decode } from 'base64-arraybuffer';
 import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from "expo-image";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioPlayerCard } from './components/AudioPlayerCard';
 import { LikeButton } from './components/LikeButton';
@@ -19,6 +20,8 @@ export default function Profile() {
   const [stats, setStats] = useState({ whispers: 0, replies: 0, daysActive: 0 });
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const { viewUser } = useLocalSearchParams();
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
 
@@ -86,16 +89,48 @@ export default function Profile() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
           setCurrentUserId(session.user.id);
-          const uName = session.user.user_metadata.username;
-          setUsername(uName);
-          fetchProfileData(uName);
+          const currentUName = session.user.user_metadata.username;
+          const targetUser = viewUser ? (Array.isArray(viewUser) ? viewUser[0] : viewUser) : currentUName;
+          
+          setUsername(targetUser);
+          setIsOwnProfile(targetUser === currentUName);
+          fetchProfileData(targetUser);
         } else {
           router.replace('/');
         }
       };
       loadUser();
-    }, [fetchProfileData])
+    }, [fetchProfileData, viewUser])
   );
+
+  const handleBlock = async () => {
+    if (!currentUserId || !profileData?.id) return;
+    try {
+      await supabase.from('blocked_users').insert([{
+        blocker_id: currentUserId,
+        blocked_id: profileData.id
+      }]);
+      Alert.alert("User Blocked", "You will no longer see this user's content.");
+      router.back();
+    } catch (e) {
+      Alert.alert("Error", "Could not block user.");
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert("Delete Account", "Are you sure? This action cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        try {
+          await supabase.rpc('delete_user');
+          await supabase.auth.signOut();
+          router.replace('/');
+        } catch (e) {
+          Alert.alert("Error", "Could not delete account.");
+        }
+      }}
+    ]);
+  };
 
   const handleLogout = async () => {
     try {
@@ -183,7 +218,7 @@ export default function Profile() {
           <Image
             source={{ uri: item.media_url }}
             style={styles.noteImage}
-            resizeMode="cover" />
+            contentFit="cover" />
         </View>
       )}
       {item.type === "Audio" && item.media_url && (
@@ -219,14 +254,28 @@ export default function Profile() {
         headerStyle: { backgroundColor: '#000' },
         headerTintColor: '#fff',
         headerRight: () => (
-          <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
-            <Text style={{ color: '#ff4444', fontSize: 16, fontWeight: 'bold' }}>Logout</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row' }}>
+            {isOwnProfile && (
+              <TouchableOpacity onPress={handleDeleteAccount} style={{ marginRight: 15 }}>
+                <Text style={{ color: '#ff4444', fontSize: 16, fontWeight: 'bold' }}>Delete</Text>
+              </TouchableOpacity>
+            )}
+            {isOwnProfile && (
+              <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
+                <Text style={{ color: '#08ded6', fontSize: 16, fontWeight: 'bold' }}>Logout</Text>
+              </TouchableOpacity>
+            )}
+            {!isOwnProfile && (
+              <TouchableOpacity onPress={handleBlock} style={{ marginRight: 15 }}>
+                <Text style={{ color: '#ff4444', fontSize: 16, fontWeight: 'bold' }}>Block</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )
       }} />
 
       <View style={styles.headerSection}>
-        <TouchableOpacity onPress={handleImagePick} style={styles.avatarContainer} activeOpacity={0.8}>
+        <TouchableOpacity onPress={isOwnProfile ? handleImagePick : undefined} style={styles.avatarContainer} activeOpacity={isOwnProfile ? 0.8 : 1} disabled={!isOwnProfile}>
           {isUploading ? (
             <View style={styles.avatarPlaceholder}>
               <ActivityIndicator color="#08ded6" />
@@ -238,9 +287,11 @@ export default function Profile() {
               <Text style={styles.avatarText}>{username ? username.charAt(0).toUpperCase() : '?'}</Text>
             </View>
           )}
-          <View style={styles.editIconContainer}>
-            <Text style={styles.editIcon}>✎</Text>
-          </View>
+          {isOwnProfile && (
+            <View style={styles.editIconContainer}>
+              <Text style={styles.editIcon}>✎</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.usernameText}>@{username}</Text>
@@ -267,7 +318,7 @@ export default function Profile() {
         </View>
       </View>
 
-      <Text style={styles.feedTitle}>Your Whispers</Text>
+      <Text style={styles.feedTitle}>{isOwnProfile ? "Your Whispers" : `${username}&apos;s Whispers`}</Text>
     </>
   );
 
